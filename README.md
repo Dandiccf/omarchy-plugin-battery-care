@@ -9,8 +9,10 @@ A replacement for Omarchy’s Power widget: charge protection, a temporary full-
 - **Accurate status:** an available preset is never presented as enabled. Hardware limits are displayed separately; disagreements with UPower are flagged.
 - **Useful telemetry:** health, cycle count, full capacity, charge/discharge power, runtime, and battery model. The charge bar marks the real active cap.
 - **Power profiles:** retains Omarchy’s separately remembered plugged-in and battery profiles.
+- **Screen & lock:** shared or separate battery/plugged-in screensaver and lock timeouts, presets and custom minutes/seconds, Apply/Cancel, and a Stay Awake indicator. Existing settings are inherited until you apply a change.
 - **Multiple batteries:** independently selectable controls and recovery state; peripheral batteries are excluded. Unsupported batteries retain monitoring.
 - **Keyboard:** arrows select available charge actions and profiles (disabled actions are skipped), Enter activates, Escape closes, `[` / `]` selects batteries, and `D` dismisses an action error. Right-click the tray icon toggles its percentage.
+- **Screen settings keyboard:** `S` opens Screen & lock. Tab moves between its controls; Enter opens a selector, arrows choose a value, and Escape closes a menu or cancels the form. Unsaved drafts survive background refreshes and are discarded when the panel closes.
 - **Failure visibility:** stale status disables charge actions, action errors persist until dismissed or retried, and an inactive recovery guard is reported. Small panels scroll, and narrow panels stack their controls.
 
 ![Battery Care panel](preview.png)
@@ -67,6 +69,18 @@ Once protection is selected, the guard keeps it enabled until you switch the lim
 - Runtime and power flow come from UPower and are estimates. Time to full is hidden when a charge limit is active because that estimate is not time to the limit.
 - Power profile selection is independent of battery charge protection.
 
+## Screen & lock
+
+Open **Screen & lock** below Power profile, or press `S` with the panel open. It opens a compact settings view in the same popup; **Back**, **Cancel**, or Escape returns to the battery overview and discards unsaved edits. The popup is capped at 620 logical pixels and the available screen height, with scrolling when needed; narrow layouts stack the two power sources. Initially, both power sources inherit your existing Omarchy timeouts. Enable **Separate power-source settings** to edit battery and plugged-in values independently. The current source is highlighted. Disabling the toggle copies that source's draft values into the shared pair; previously saved separate values remain available when re-enabled.
+
+Choose a preset or **Custom…** and enter minutes and seconds (1 second to 24 hours). Both timeouts count from the last activity: screensaver at 2 minutes and lock at 5 minutes means five minutes total, not seven. There is no Never option: Omarchy treats zero as immediate, not disabled. **Apply** saves; **Cancel** discards the draft. **Reload** discards the draft and reads the latest saved settings. Stay Awake is displayed and respected; Battery Care never changes its setting.
+
+Omarchy's existing idle service still starts the screensaver and locks the session. Battery Care writes only the selected timeout pair and its preferences under `idle.batteryCare` in `~/.config/omarchy/shell.json`. It preserves other configuration, uses verified regular files and atomic writes, checks for concurrent changes, and makes a private `idle-shell-before-*.json` backup in its state directory before each explicit save. Invalid files and unsafe/symlinked paths are refused.
+
+**Automatic switching waits while you are away.** Changing the stock idle service's timer intervals can restart a countdown, so Battery Care monitors power-source changes but only applies a different pair while activity is detected and Omarchy confirms no idle/lock cycle is in progress. A pending switch is shown in the panel; the old timeout pair remains in effect until you return. This preserves the existing lock deadline. Switching also works with the panel closed, while the widget is enabled. It does not require the charge-recovery timer or charge-threshold support.
+
+If another tool edits Omarchy's timeouts, automatic switching stops and shows a conflict instead of replacing that edit. Reload the form, review its values, and Apply to resume management. Disabling/removing Battery Care stops automatic switching; Omarchy retains the last active pair and the inert saved preferences. The installed Omarchy idle service must be available for Apply.
+
 ## Revert / uninstall
 
 Restore the standard widget:
@@ -107,4 +121,4 @@ Regression coverage includes the inactive 80% preset bug, reboot and unplug reco
 
 Based on the structure and styling of Omarchy’s Power widget, installed Omarchy version 4.0.4-1. Shared `qs.Ui` components keep it aligned with the desktop theme. MIT licensed; upstream attribution is in LICENSE.
 
-The code and usability review, including the 0.2.1 marketplace file-safety fixes, is recorded in [REVIEW.md](REVIEW.md), with test boundaries and remaining limitations.
+The code and usability review, including the 0.2.1 marketplace file-safety fixes and 0.3.0 Screen & lock feature, is recorded in [REVIEW.md](REVIEW.md), with test boundaries and remaining limitations.

@@ -1,5 +1,12 @@
 # Release notes and future improvements
 
+## Added in 0.3.0
+
+- Compact Screen & lock settings view with a shared pair or separate battery/AC pairs, inherited defaults, presets/custom times, Apply/Cancel/Reload, Stay Awake status, and keyboard access.
+- Event-driven power-source detection and activity-gated application through Omarchy's existing global idle settings. Source changes while away wait until activity resumes, preserving the stock lock deadline.
+- Verified atomic configuration writes, private pre-save backups, stale-draft/concurrent-edit checks, and refusal to overwrite externally changed timeouts automatically.
+- Adaptive timeout menus that open above the control when there is insufficient room below.
+
 ## Reviewed in 0.2.0
 
 - Preserve explicit Off during removal; refuse to abandon absent batteries with pending full-charge recovery.

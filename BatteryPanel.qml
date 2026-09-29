@@ -26,6 +26,8 @@ Panel {
   property string activeProfile: ""
   property int cursorIndex: 0
   property bool cursorActive: false
+  property alias idleAutomationEnabled: idleController.enabled
+  property alias screenSettings: screenSettings
   readonly property var battery: batteries.find(function(b) { return b.key === root.selectedKey }) || batteries[0] || ({})
   readonly property bool batteryPresent: batteries.length > 0
   readonly property bool busy: actionProc.running
@@ -35,7 +37,7 @@ Panel {
   readonly property int controlCount: (battery.supported ? 2 : 0) + profiles.length
   readonly property var enabledControls: {
     var result = []
-    if (!statusValid) return result
+    if (!statusValid) return idleController.enabled ? [controlCount] : result
     if (battery.supported && !busy) {
       result.push(0)
       if (!batteryPower || Model.fullChargeActive(battery)) result.push(1)
@@ -43,6 +45,7 @@ Panel {
     if (!profileProc.running) {
       for (var i = 0; i < profiles.length; ++i) result.push(i + (battery.supported ? 2 : 0))
     }
+    if (idleController.enabled) result.push(controlCount)
     return result
   }
 
@@ -90,6 +93,7 @@ Panel {
   }
   function activateCursor() {
     if (enabledControls.indexOf(cursorIndex) < 0) return
+    if (cursorIndex === controlCount) { screenSettings.toggle(); return }
     var offset = battery.supported ? 2 : 0
     if (offset && cursorIndex < 2) charge(cursorIndex === 0 ? Model.protectionAction(battery) : Model.fullChargeAction(battery))
     else if (profiles[cursorIndex - offset]) setProfile(profiles[cursorIndex - offset])
@@ -101,13 +105,16 @@ Panel {
     cursorActive = false
   }
   function revealControl(index) {
-    var item = index === 0 && battery.supported ? protectButton
+    var item = index === controlCount ? screenSettings : index === 0 && battery.supported ? protectButton
       : index === 1 && battery.supported ? fullButton
       : profileRepeater.itemAt(index - (battery.supported ? 2 : 0))
+    revealItem(item)
+  }
+  function revealItem(item) {
     if (!item) return
     var y = item.mapToItem(column, 0, 0).y
     if (y < scroll.contentY) scroll.contentY = y
-    else if (y + item.height > scroll.contentY + scroll.height) scroll.contentY = y + item.height - scroll.height
+    else if (y + item.height > scroll.contentY + scroll.height) scroll.contentY = Math.min(y, y + item.height - scroll.height)
   }
   function togglePercentage() {
     settings = Object.assign({}, settings, {showPercentage: !showPercentage})
@@ -123,7 +130,10 @@ Panel {
     function togglePercentage() { root.togglePercentage() }
   }
   Component.onCompleted: refresh()
-  onOpenedChanged: if (opened) { refresh(); cursorActive = false; cursorIndex = 0; scroll.contentY = 0 }
+  onOpenedChanged: {
+    if (opened) { refresh(); cursorActive = false; cursorIndex = 0; scroll.contentY = 0 }
+    else screenSettings.cancel()
+  }
   onSelectedKeyChanged: cursorActive = false
   visible: batteryPresent || errorText !== ""
   implicitWidth: visible ? button.implicitWidth : 0
@@ -169,6 +179,7 @@ Panel {
     stderr: StdioCollector { waitForEnd: true; onStreamFinished: root.profileError = text.trim() }
   }
   Timer { interval: root.opened ? 5000 : 30000; running: true; repeat: true; onTriggered: root.refresh() }
+  IdleController { id: idleController; panelOpen: root.opened }
 
   BarIconButton {
     id: button
@@ -187,10 +198,11 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(440))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight)
+    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(620))
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
+      blocked: screenSettings.expanded
       onMoveRequested: function(dx, dy) {
         root.cursorIndex = Model.nextControl(root.cursorIndex, dx || dy, root.enabledControls, root.cursorActive)
         root.cursorActive = true
@@ -199,7 +211,7 @@ Panel {
       onActivateRequested: if (root.cursorActive) root.activateCursor()
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
-      onTextKey: function(key) { if (key === "[") root.selectBattery(-1); else if (key === "]") root.selectBattery(1); else if (key === "d") root.actionError = "" }
+      onTextKey: function(key) { if (key === "[") root.selectBattery(-1); else if (key === "]") root.selectBattery(1); else if (key === "d") root.actionError = ""; else if (key === "s") screenSettings.toggle() }
       Flickable {
         id: scroll
         anchors.fill: parent
@@ -212,6 +224,11 @@ Panel {
         id: column
         width: parent.width
         spacing: Style.space(14)
+        Column {
+          id: overview
+          width: parent.width
+          visible: !screenSettings.expanded
+          spacing: Style.space(14)
         Row {
           width: parent.width
           spacing: Style.space(12)
@@ -421,6 +438,20 @@ Panel {
           opacity: 0.55
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.caption
+        }
+        PanelSeparator { foreground: root.bar.foreground }
+        }
+        ScreenSettings {
+          id: screenSettings
+          width: parent.width
+          controller: idleController
+          navigationOwner: root
+          navigationIndex: root.controlCount
+          foreground: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+          onExpandedChanged: scroll.contentY = 0
+          onReveal: function(item) { Qt.callLater(function() { root.revealItem(item) }) }
+          onReturnToPanel: { keyCatcher.forceActiveFocus(); root.cursorIndex = root.controlCount; root.cursorActive = true }
         }
       }
       }

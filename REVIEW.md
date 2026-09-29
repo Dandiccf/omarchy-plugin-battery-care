@@ -1,4 +1,4 @@
-# Code and usability review — Battery Care 0.2.1
+# Code and usability review — Battery Care 0.3.0
 
 Reviewed 2026-09-29 on Omarchy 4.0.4-1 / ThinkPad X1 Gen 14.
 
@@ -55,3 +55,13 @@ The marketplace maintainer identified two gaps in the original review: the statu
 - Re-ran all 59 Python tests, 32 JavaScript assertions, both QML flows, manifest validation, and shell syntax checks. Live status still reports enabled 75–80% protection with no mismatch or guard warning; the existing units pass ownership/content checks and the recovery service exits successfully.
 
 The plugin is submitted as [marketplace issue #9273](https://github.com/omacom/omarchy-plugin-marketplace/issues/9273). Marketplace approval is separate from these local checks.
+
+## Screen & lock — 0.3.0
+
+The new editor preserves current timeouts until Apply, keeps drafts isolated from polling, provides separate/shared source settings, and uses Omarchy's idle service instead of launching a second locker. Config writes reuse the verified-file helpers, preserve unrelated keys, check stale idle revisions and concurrent file edits, and back up each explicit save. There is no claim of a transaction with noncooperating external writers: a detected conflict is rejected, and users should avoid changing the same settings simultaneously through different tools.
+
+The controller observes UPower source changes and a one-second activity monitor. Its startup grace period prevents treating an uninitialized activity monitor as permission to switch. It additionally checks Omarchy's idle-cycle and locked-screen state before changing timeout intervals. While idle, preferences can be saved but the active pair is retained; pending switches apply after activity resumes. This intentionally favors preserving the current lock deadline over changing an away session immediately.
+
+Verification includes 19 new Python cases (78 total), 32 existing JavaScript assertions, the existing battery/button QML flows, a production settings-form flow, and a production IdleController flow using the real Python config backend with temporary files and simulated UPower/activity. These cover defaults, separate/shared selection, custom seconds, Apply/Cancel, draft retention, blocked idle/lock transitions, deferred switching on return, external/conflicting edits, symlink rejection, missing IPC, and backup failure. A live +1-second timeout change was acknowledged by Omarchy, then the original 150/300-second pair and prior idle configuration were restored and acknowledged. Normal-width UI and keyboard inspection was performed on the ThinkPad. Screen & lock now opens as a compact subview, hiding the battery overview; the popup caps its height to 620 logical pixels or the available screen space and scrolls overflow. A fifth QML flow checks that timeout menus choose upward/downward placement after layout.
+
+Physical charger switching for idle profiles and a full unattended lock countdown still need live coverage; source/cycle transitions are simulated. No new timeout preferences are imposed merely by installing the feature. The previously published 0.2.1 release is separate from this local feature work.

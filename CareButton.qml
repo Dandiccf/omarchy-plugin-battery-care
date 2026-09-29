@@ -5,9 +5,9 @@ import qs.Ui
 Button {
   required property var navigationOwner
   required property int navigationIndex
-  hasCursor: navigationOwner.cursorActive && navigationOwner.cursorIndex === navigationIndex
+  hasCursor: navigationOwner && navigationOwner.cursorActive && navigationOwner.cursorIndex === navigationIndex
   onHovered: function(hovered) {
-    if (hovered) {
+    if (hovered && navigationOwner) {
       navigationOwner.cursorActive = false
       navigationOwner.cursorIndex = navigationIndex
     }

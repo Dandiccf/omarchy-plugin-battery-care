@@ -21,7 +21,7 @@ ShellRoot {
     property bool vertical: false
     property int iconSize: 18
   }
-  Care.BatteryPanel { id: panel; bar: mockBar; helper: Qt.resolvedUrl("Care/tests/fake_backend.py").toString().replace("file://", "") }
+  Care.BatteryPanel { id: panel; bar: mockBar; idleAutomationEnabled: false; helper: Qt.resolvedUrl("Care/tests/fake_backend.py").toString().replace("file://", "") }
   Timer {
     property int phase: 0
     property int count: 0

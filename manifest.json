@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "dandiccf.battery-care",
   "name": "Battery Care",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "author": "dandiccf",
   "license": "MIT",
   "description": "Honest charge-limit status, battery health, power profiles, and temporary full charging with automatic protection recovery.",
