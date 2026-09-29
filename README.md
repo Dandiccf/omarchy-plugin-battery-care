@@ -54,6 +54,8 @@ The first protection or temporary full-charge action creates:
 
 The timer checks every 15 seconds and works even if the panel is closed or the shell restarts. A durable recovery record is written **before** disabling the cap. Unplugging or a changed kernel boot ID converts a temporary full session back to protection. Failed restoration retains the record and retries; the panel displays the failure. Devices are matched using a hash of native path, model, and serial, avoiding accidental changes to a replacement battery.
 
+State is stored in a private, user-owned directory. Managed paths must be real directories (including the ancestors of `XDG_STATE_HOME` and `XDG_CONFIG_HOME`); symlinked paths and unsafe shared-writable directories are rejected. Lock, state, and unit files must be user-owned regular files without extra hard links or group/world write access. Existing recovery units are reused only when their complete contents match this installation, including its helper path. Foreign or modified files are never overwritten or automatically removed; resolve any reported conflict before retrying. Exact units from 0.2.0 at the same installation path remain compatible.
+
 This is a **user-session** guard. After reboot, restoration happens at login, not during firmware startup or while the machine is powered off. Very brief unplug/replug events entirely between checks may not be observed; unplug for at least one check interval or click the protection button. User-session authorization must be available for UPower to apply changes. Disabling the widget deliberately does not disable the guard or abandon a pending recovery.
 
 Once protection is selected, the guard keeps it enabled until you switch the limit Off. Turning it Off also cancels any pending temporary full-charge recovery. If another charge manager repeatedly changes the settings, choose one owner for charge protection. Preset values are supplied by UPower; this version does not write arbitrary sysfs thresholds.
@@ -87,7 +89,7 @@ For a git-managed install, first release management before using Omarchy’s plu
 omarchy plugin remove dandiccf.battery-care
 ```
 
-Release restores protection for managed protection/full-charge modes and preserves an explicit **Off** choice. It refuses to abandon an absent battery with a pending full-charge session or a failed restoration. Then remove the plugin through Omarchy and, optionally, delete the two disabled user unit files followed by `systemctl --user daemon-reload`. Do not delete this source directory while the recovery service still references it.
+Release restores protection for managed protection/full-charge modes and preserves an explicit **Off** choice. It refuses to abandon an absent battery with a pending full-charge session or a failed restoration. It verifies ownership and exact contents of both recovery units before changing anything, then disables the timer, removes only those verified units, and reloads the user service manager. If release reports an error, resolve it before removing the plugin or source directory. The local uninstall script uses this same checked cleanup.
 
 ## Verification
 
@@ -105,4 +107,4 @@ Regression coverage includes the inactive 80% preset bug, reboot and unplug reco
 
 Based on the structure and styling of Omarchy’s Power widget, installed Omarchy version 4.0.4-1. Shared `qs.Ui` components keep it aligned with the desktop theme. MIT licensed; upstream attribution is in LICENSE.
 
-The complete 0.2.0 code and usability review is recorded in [REVIEW.md](REVIEW.md), including test boundaries and remaining limitations.
+The code and usability review, including the 0.2.1 marketplace file-safety fixes, is recorded in [REVIEW.md](REVIEW.md), with test boundaries and remaining limitations.

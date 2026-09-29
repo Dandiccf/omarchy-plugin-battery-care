@@ -13,7 +13,5 @@ fi
 omarchy plugin disable dandiccf.battery-care
 omarchy plugin enable omarchy.power
 rm -- "$plugin_dir"
-rm -f -- "$config_home/systemd/user/omarchy-battery-care.timer" "$config_home/systemd/user/omarchy-battery-care.service"
-systemctl --user daemon-reload
 omarchy-shell shell rescanPlugins
 echo "Restored the standard Power widget and removed the recovery units. Source files remain in $source_dir."

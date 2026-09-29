@@ -1,4 +1,4 @@
-# Code and usability review — Battery Care 0.2.0
+# Code and usability review — Battery Care 0.2.1
 
 Reviewed 2026-09-29 on Omarchy 4.0.4-1 / ThinkPad X1 Gen 14.
 
@@ -25,7 +25,7 @@ The review covered every product source file: the Python UPower adapter, state a
 
 ## Verification actually performed
 
-- **34 Python tests**: recovery transitions, reboot/unplug simulations, Off persistence, unsupported/replaced/absent batteries, failed authorization, removal behavior, corrupt state, telemetry validation, durable-save failure, inactive guard, and installer failure/rollback.
+- **59 Python tests**: recovery transitions, reboot/unplug simulations, Off persistence, unsupported/replaced/absent batteries, failed authorization, removal behavior, corrupt state, telemetry validation, durable-save failure, inactive guard, installer failure/rollback, and 25 file-safety regression cases added in 0.2.1.
 - **32 JavaScript assertions**: status labels, active/preset distinction, action selection, unknown values, empty state, keyboard navigation, and temporary full-charge presentation.
 - **Two isolated QML test flows using the production components**: shared button hover/keyboard-state bindings; panel Off/full/cancel command routing (including cancel while on battery), stale/invalid status, persistent errors, corrupt-state lockout, and keyboard battery selection. The panel harness uses a stateful simulated Python backend and does not write battery controls.
 - Omarchy manifest validation, QML parsing, and shell script syntax checks.
@@ -43,4 +43,15 @@ The button QML harness exercises hover signals and bindings; it is not a substit
 4. **Limits come from UPower.** The plugin does not offer arbitrary custom percentages or forcibly drain a battery that is already above the limit. Other charge managers can still change the same hardware; disagreements are reported.
 5. **Removal must release management first.** Omarchy does not run plugin uninstall hooks. Use the local uninstall script or run `battery.py release` before removing a git-installed copy.
 
-At the completion of this review, no marketplace submission, upstream report, or public repository publication had been performed. Publication is a separate step.
+## Marketplace file-safety follow-up — 0.2.1
+
+The marketplace maintainer identified two gaps in the original review: the status lock used a truncating, symlink-following open, and fixed unit paths could overwrite foreign files. The local uninstaller also removed unit filenames without verifying their contents.
+
+- Directory access now uses pinned directory descriptors and refuses symlink traversal. The state directory is verified as user-owned and made private; unsafe shared-writable paths are rejected.
+- The lock opens without truncation using `O_NOFOLLOW`, followed by regular-file, owner, hard-link-count, and permission checks. State reads/writes use the same file checks and directory descriptors; saves retain file/directory fsync.
+- Both unit destinations are checked before installation. Existing files must be user-owned, safe regular files with exact generated contents. New files are flushed and published with a no-clobber hard link from a unique temporary file, so a competing destination is never overwritten. Exact 0.2.0 units at the same helper path are compatible without rewriting them.
+- Release checks the units before touching charging or recovery state, restores pending sessions, and removes only verified units. The local uninstaller delegates cleanup to release and no longer blindly deletes fixed unit paths.
+- Added regression cases for symlinks (including dangling links and ancestors), hard links, FIFOs, foreign owners, shared-writable directories, nontruncating locks, foreign/modified units, concurrent destination creation, legacy compatibility, and safe removal. These use temporary directories and simulated UPower/systemctl; they do not change hardware settings.
+- Re-ran all 59 Python tests, 32 JavaScript assertions, both QML flows, manifest validation, and shell syntax checks. Live status still reports enabled 75–80% protection with no mismatch or guard warning; the existing units pass ownership/content checks and the recovery service exits successfully.
+
+The plugin is submitted as [marketplace issue #9273](https://github.com/omacom/omarchy-plugin-marketplace/issues/9273). Marketplace approval is separate from these local checks.

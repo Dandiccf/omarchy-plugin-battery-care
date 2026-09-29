@@ -8,9 +8,10 @@ import json
 import math
 import os
 from pathlib import Path
+import secrets
+import stat
 import subprocess
 import sys
-import tempfile
 import time
 
 STATE = Path(os.environ.get('XDG_STATE_HOME', Path.home() / '.local/state')) / 'omarchy-battery-care'
@@ -72,9 +73,96 @@ def boot_id():
     return Path('/proc/sys/kernel/random/boot_id').read_text().strip()
 
 
-def read_state():
+@contextlib.contextmanager
+def safe_directory(path, *, private=False, create=True):
+    """Pin directories by descriptor; never follow symlinks in managed paths."""
+    path = Path(path)
+    if not path.is_absolute() or '..' in path.parts:
+        raise RuntimeError('Battery Care requires an absolute, normalized directory: ' + str(path))
+    fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
     try:
-        state = json.loads((STATE / 'state.json').read_text())
+        for part in path.parts[1:]:
+            if create:
+                try:
+                    os.mkdir(part, 0o700, dir_fd=fd)
+                except FileExistsError:
+                    pass
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            os.close(fd)
+            fd = child
+            info = os.fstat(fd)
+            # A sticky shared ancestor (e.g. /tmp in tests) protects owned entries.
+            if info.st_mode & 0o022 and not info.st_mode & stat.S_ISVTX:
+                raise RuntimeError('Unsafe writable directory in Battery Care path: ' + str(path))
+        info = os.fstat(fd)
+        if info.st_uid != os.geteuid():
+            raise RuntimeError('Battery Care directory is not owned by this user: ' + str(path))
+        if private:
+            os.fchmod(fd, 0o700)
+        elif info.st_mode & 0o022:
+            raise RuntimeError('Unsafe writable Battery Care directory: ' + str(path))
+        yield fd
+    finally:
+        os.close(fd)
+
+
+def verify_file(fd, name):
+    info = os.fstat(fd)
+    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+            or info.st_nlink != 1 or info.st_mode & 0o022):
+        raise RuntimeError('Refusing unsafe or unowned Battery Care file: ' + name)
+    return info
+
+
+def read_owned(directory_fd, name):
+    try:
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
+    except FileNotFoundError:
+        return None
+    with contextlib.ExitStack() as stack:
+        stack.callback(os.close, fd)
+        info = verify_file(fd, name)
+        if info.st_size > 1024 * 1024:
+            raise RuntimeError('Battery Care file is unexpectedly large: ' + name)
+        # Bound the read even if another process grows the file after fstat.
+        data = os.read(fd, 1024 * 1024 + 1)
+        if len(data) > 1024 * 1024:
+            raise RuntimeError('Battery Care file is unexpectedly large: ' + name)
+        return data.decode('utf-8')
+
+
+def publish_file(directory_fd, name, data, *, replace=False):
+    """Publish a flushed private file. Unit creation must never clobber a name."""
+    temp = '.battery-care-' + secrets.token_hex(16)
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                 0o600, dir_fd=directory_fd)
+    try:
+        with os.fdopen(fd, 'w') as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if replace:
+            # Also reject unexpected existing state files, rather than erase them.
+            read_owned(directory_fd, name)
+            os.replace(temp, name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
+        else:
+            os.link(temp, name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd,
+                    follow_symlinks=False)
+            os.unlink(temp, dir_fd=directory_fd)
+        os.fsync(directory_fd)
+    finally:
+        try:
+            os.unlink(temp, dir_fd=directory_fd)
+        except FileNotFoundError:
+            pass
+
+
+def read_state():
+    with safe_directory(STATE, private=True) as directory_fd:
+        raw = read_owned(directory_fd, 'state.json')
+        if raw is None:
+            return {'batteries': {}}
+        state = json.loads(raw)
         if not isinstance(state, dict) or not isinstance(state.get('batteries', {}), dict):
             raise ValueError('Invalid battery-care state')
         for key, record in state.get('batteries', {}).items():
@@ -82,37 +170,25 @@ def read_state():
                     or not isinstance(record.get('boot'), str)):
                 raise ValueError('Invalid battery-care recovery record for ' + key)
         return state
-    except FileNotFoundError:
-        return {'batteries': {}}
 
 
 def save_state(state):
-    STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
     # Flush both the contents and rename before any charging change can follow.
-    with tempfile.NamedTemporaryFile(mode='w', dir=STATE, delete=False) as handle:
-        temp = Path(handle.name)
-        try:
-            handle.write(json.dumps(state, indent=2) + '\n')
-            handle.flush()
-            os.fsync(handle.fileno())
-            temp.replace(STATE / 'state.json')
-            directory_fd = os.open(STATE, os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
-        finally:
-            temp.unlink(missing_ok=True)
+    with safe_directory(STATE, private=True) as directory_fd:
+        publish_file(directory_fd, 'state.json', json.dumps(state, indent=2) + '\n', replace=True)
 
 
 @contextlib.contextmanager
 def locked():
-    STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with (STATE / 'lock').open('w') as handle:
+    with safe_directory(STATE, private=True) as directory_fd, contextlib.ExitStack() as stack:
+        fd = os.open('lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK,
+                     0o600, dir_fd=directory_fd)
+        stack.callback(os.close, fd)
+        verify_file(fd, 'lock')
         deadline = time.monotonic() + 5
         while True:
             try:
-                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 break
             except BlockingIOError:
                 if time.monotonic() >= deadline:
@@ -128,20 +204,68 @@ def run(*args):
         raise RuntimeError((error.stderr or error.stdout or str(error)).strip()) from error
 
 
-def install_guard():
-    """Called only by an explicit protection/full-charge action, never a status read."""
-    directory = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'systemd/user'
-    directory.mkdir(parents=True, exist_ok=True)
+def unit_directory():
+    return Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'systemd/user'
+
+
+def guard_files():
     script = str(Path(__file__).resolve()).replace('\\', '\\\\').replace('"', '\\"').replace('%', '%%').replace('$', '$$')
     service = '[Unit]\nDescription=Restore Battery Care charge protection\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/python3 "' + script + '" reconcile\n'
     timer = '[Unit]\nDescription=Check temporary full-charge sessions\n\n[Timer]\nOnStartupSec=5s\nOnUnitActiveSec=15s\nAccuracySec=1s\n\n[Install]\nWantedBy=timers.target\n'
-    for suffix, data in [('service', service), ('timer', timer)]:
-        target = directory / (UNIT + '.' + suffix)
-        if not target.exists() or target.read_text() != data:
-            target.write_text(data)
+    # Exact contents recognize 0.2.0 units too; a marker alone is not ownership.
+    return {UNIT + '.service': service, UNIT + '.timer': timer}
+
+
+def check_guard_files(directory_fd):
+    present = []
+    for name, expected in guard_files().items():
+        actual = read_owned(directory_fd, name)
+        if actual is not None:
+            if actual != expected:
+                raise RuntimeError('Refusing foreign or modified recovery unit: ' + name
+                                   + '. Resolve this file conflict before retrying.')
+            present.append(name)
+    return present
+
+
+def install_guard():
+    """Explicit actions only. Reuse verified units; never overwrite existing files."""
+    with safe_directory(unit_directory()) as directory_fd:
+        present = check_guard_files(directory_fd)  # Preflight both before writing either.
+        for name, data in guard_files().items():
+            if name not in present:
+                publish_file(directory_fd, name, data)
+        check_guard_files(directory_fd)
     run('systemctl', '--user', 'daemon-reload')
     run('systemctl', '--user', 'enable', '--now', UNIT + '.timer')
     run('systemctl', '--user', 'is-active', '--quiet', UNIT + '.timer')
+
+
+@contextlib.contextmanager
+def checked_guard_directory():
+    with contextlib.ExitStack() as stack:
+        try:
+            fd = stack.enter_context(safe_directory(unit_directory(), create=False))
+        except FileNotFoundError:
+            yield None
+            return
+        check_guard_files(fd)
+        yield fd
+
+
+def remove_guard(directory_fd):
+    if directory_fd is None:
+        return
+    present = check_guard_files(directory_fd)
+    if not present:
+        return
+    if UNIT + '.timer' in present:
+        run('systemctl', '--user', 'disable', '--now', UNIT + '.timer')
+    # Recheck after systemctl, and only unlink our exact regular unit files.
+    for name in check_guard_files(directory_fd):
+        os.unlink(name, dir_fd=directory_fd)
+    os.fsync(directory_fd)
+    run('systemctl', '--user', 'daemon-reload')
 
 
 def apply_action(api, state, device, action, boot, on_battery):
@@ -263,7 +387,7 @@ def main():
         with locked():
             try:
                 state = read_state()
-            except (ValueError, OSError) as error:
+            except (ValueError, OSError, RuntimeError) as error:
                 if args.action != 'status':
                     raise
                 data = snapshot(api, {'batteries': {}})
@@ -286,11 +410,10 @@ def main():
                     install_guard()
                 apply_action(api, state, device, args.action, boot_id(), api.on_battery())
             elif args.action == 'release':
-                prepare_release(api, state, api.devices())
-                unit_dir = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'systemd/user'
-                if (unit_dir / (UNIT + '.timer')).exists():
-                    run('systemctl', '--user', 'disable', '--now', UNIT + '.timer')
-                save_state({'batteries': {}})
+                with checked_guard_directory() as directory_fd:
+                    prepare_release(api, state, api.devices())
+                    remove_guard(directory_fd)
+                    save_state({'batteries': {}})
             current = read_state()
             data = snapshot(api, current)
             data['guardWarning'] = guard_warning(current)
