@@ -21,7 +21,7 @@ else
   created_link=1
 fi
 config="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/shell.json"
-if [[ -f "$config" ]]; then cp -p "$config" "$config.battery-care.$(date +%Y%m%d%H%M%S).bak"; fi
+/usr/bin/python3 "$source_dir/backup_config.py" "$config"
 omarchy-shell shell rescanPlugins
 for ((attempt=0; attempt<40; attempt++)); do
   if omarchy plugin list --json | jq -e --arg id "$plugin_id" 'any(.[]; .id == $id)' >/dev/null; then break; fi

@@ -13,7 +13,8 @@ ShellRoot {
     color: "#20202b"
     Care.TimeoutDropdown {
       id: menu
-      x: 20; y: 320; width: 280
+      // The compositor may tile/resize this window; use its actual bottom edge.
+      x: 20; y: window.height - height - 20; width: 280
       options: ["30s", "1m", "2m", "5m", "10m", "15m", "30m", "1h", "Custom…"]
       value: "5m"
     }

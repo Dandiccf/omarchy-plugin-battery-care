@@ -2,7 +2,7 @@ const assert = require('node:assert/strict')
 const m = require('../Model.js')
 const b = { key: 'BAT0', supported: true, enabled: false, percentage: 79, state: 5, end: 80, start: 75 }
 assert.equal(m.holding(b, false), false)
-assert.equal(m.status(b, false), 'Charging paused')
+assert.equal(m.status(b, false), 'Plugged in · charge paused')
 assert.match(m.explanation(b, false), /not active/)
 assert.equal(m.holding({...b, enabled: true}, false), true)
 assert.equal(m.holding({...b, enabled: true}, true), false)
@@ -35,3 +35,14 @@ assert.equal(m.nextControl(3, 1, [0, 2, 3], true), 3)
 assert.equal(m.nextControl(1, 1, [0, 2, 3], true), 0)
 assert.equal(m.nextControl(0, 1, [], true), -1)
 console.log('10 additional review regression assertions passed')
+// Connecting AC while the battery is inside its protection band must be visible
+// without implying that current is flowing into the battery.
+const held = {...b, enabled: true, percentage: 77}
+assert.equal(m.status(held, false), 'Plugged in · charge paused')
+assert.equal(m.batteryIcon(held, false), '󰚥')
+assert.equal(m.batteryIcon({...held, state: 1}, false), '󰂄')
+assert.notEqual(m.batteryIcon({...held, state: 2}, true), '󰚥')
+assert.equal(m.status({...held, state: 2}, true), 'On battery')
+assert.equal(m.batteryIcon({...b, state: 4, percentage: 100}, false), '󰚥')
+assert.match(m.explanation(held, false), /Stops charging at 80%.*Resumes below 75%/)
+console.log('7 plugged-in presentation regression assertions passed')

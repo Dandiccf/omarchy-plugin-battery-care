@@ -38,7 +38,9 @@ Enabling Battery Care replaces the standard Power widget. Charge settings change
 
 The installer validates the plugin, backs up `~/.config/omarchy/shell.json`, and links this folder to `~/.config/omarchy/plugins/dandiccf.battery-care`. Enabling it replaces `omarchy.power` using Omarchy’s supported `clonedFrom` mechanism, preserving the stock IPC target and widget placement. Source stays in your development checkout. Installing alone does not change charging settings.
 
-Choose **80% limit** (or the device’s offered protection preset) to enable protection. The first protection or temporary full-charge action installs and enables a small user timer. Turning protection Off does not require installing a timer. Development edits usually reload automatically; if Quickshell retains a cached QML error, run `omarchy restart shell` while the desktop is unlocked.
+The installer's configuration backup has a unique random filename and private permissions. It verifies the source file and directory, refuses unsafe paths, and never replaces an existing backup or follows a backup symlink. Backup failure stops installation before enabling the widget.
+
+Choose **80% limit** (or the device’s offered protection preset) to enable protection. The first protection or temporary full-charge action installs and enables a small user timer. Turning protection Off does not require installing a timer. Development edits usually reload automatically; if Quickshell retains cached QML or JavaScript, run `omarchy restart shell` while the desktop is unlocked. A plugin rescan alone may not reload imported JavaScript.
 
 Update a git-installed copy with:
 
@@ -64,6 +66,7 @@ Once protection is selected, the guard keeps it enabled until you switch the lim
 
 ## Reading the panel
 
+- A plug icon means external power is connected; the charging icon appears only while charging. “Plugged in · charge paused” makes a connected charger visible while protection holds the battery between its start and stop thresholds.
 - At a current charge above the limit, protection stops further charging; it does not force battery discharge.
 - “Health” is reported full capacity divided by design capacity. A new battery may show slightly above 100%; this is normal measurement/manufacturing variation, not a charging percentage.
 - Runtime and power flow come from UPower and are estimates. Time to full is hidden when a charge limit is active because that estimate is not time to the limit.

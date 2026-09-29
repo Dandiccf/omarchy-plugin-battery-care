@@ -23,13 +23,13 @@ function status(b, onBattery) {
   if (!b || !b.key) return "Reading battery…"
   if (b.mismatch) return "Charge setting mismatch"
   if (b.state === 2) return "On battery"
-  if (holding(b, onBattery)) return "Holding · protection on"
+  if (holding(b, onBattery)) return "Plugged in · charge paused"
   if (b.state === 1) return b.enabled ? "Charging · protection on" : "Charging to full"
   if (b.state === 4 && b.percentage >= 99) return "Fully charged"
   if (b.state === 3) return "Empty"
-  if (b.state === 5) return "Charging paused"
+  if (b.state === 5) return onBattery ? "Charging paused" : "Plugged in · charge paused"
   if (b.state === 6) return "Discharge pending"
-  return onBattery ? "On battery" : "Connected · idle"
+  return onBattery ? "On battery" : "Plugged in · idle"
 }
 function explanation(b, onBattery) {
   if (!b || !b.key) return "Reading battery information…"
@@ -48,6 +48,7 @@ function explanation(b, onBattery) {
 function batteryIcon(b, onBattery) {
   var icons = ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
   if (b.state === 1 && !onBattery) return "󰂄"
+  if (!onBattery) return "󰚥"
   return icons[Math.max(0, Math.min(9, Math.floor((b.percentage || 0) / 10)))]
 }
 function profileIcon(name) {

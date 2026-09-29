@@ -1,4 +1,4 @@
-# Code and usability review — Battery Care 0.3.0
+# Code and usability review — Battery Care 0.3.1
 
 Reviewed 2026-09-29 on Omarchy 4.0.4-1 / ThinkPad X1 Gen 14.
 
@@ -79,3 +79,12 @@ Reviewed the complete feature diff, existing file/charge helpers, installation/r
 - Opening settings before their first response could focus an invisible control. The loading view now keeps an Escape-capable focus target.
 
 Release validation: 82 Python tests, 32 JavaScript assertions, five production-QML flows, manifest validation, QML parsing, shell syntax checks, and a clean diff check. The new QML regressions exercise in-flight save protection and transient-vs-action error handling. These checks do not replace the remaining physical charger/lock-countdown coverage noted above.
+
+
+## Patch review and marketplace follow-up — 0.3.1
+
+The plugged-in display now uses a plug icon when connected without charging, retains the charging icon during active charging, and says “Plugged in · charge paused” during protection hold. Charge thresholds, recovery, and power-source detection are unchanged. Reviewed paused, charging, discharging, full, unknown, mismatch, and unsupported presentation paths. The user confirmed the updated display after a shell restart; a plugin rescan alone had retained imported JavaScript.
+
+The maintainer confirmed the earlier lock/unit fixes but identified the local installer's predictable backup destination as an additional blocker. `backup_config.py` now reuses the verified directory/file helpers: descriptor-based no-follow reads, owner/type/permission/link-count checks, a random destination, private flushed temporary contents, and no-clobber hard-link publication. Existing destination collisions are refused, never replaced or followed. A missing configuration needs no backup; an unsafe source or backup failure aborts before widget enable and cleans up only a newly created development link.
+
+Validation: 88 Python tests, 39 JavaScript assertions, five QML flows, manifest validation, shell syntax, and diff checks passed. Six new installer tests cover repeated backups, permissions, existing file/symlink/dangling-symlink/hard-link/directory/FIFO collisions, unsafe source/directory rejection, missing config, and failure cleanup. The timeout-menu harness initially failed because the compositor resized its window; it now places its bottom selector relative to the actual window height, and all five flows passed on rerun. No production dropdown change was needed. Previously documented hardware/idle coverage limits remain applicable.
