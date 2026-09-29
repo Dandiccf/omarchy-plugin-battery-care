@@ -10,6 +10,7 @@ Item {
   property string helper: decodeURIComponent(Qt.resolvedUrl("idle_settings.py").toString().replace(/^file:\/\//, ""))
   property var snapshot: null
   property string error: ""
+  property string statusError: ""
   property bool refreshQueued: false
   property bool monitorReady: false
   property bool activityAllowed: monitorReady && !activityMonitor.isIdle
@@ -33,11 +34,11 @@ Item {
   function apply(preferences, revision) {
     if (busy) return
     error = ""
-    execute("apply", ["--preferences", JSON.stringify(preferences), "--revision", revision].concat(activityAllowed ? ["--active"] : []))
+    execute("apply", ["--preferences", JSON.stringify(preferences), "--revision", revision].concat(activityAllowed ? ["--active", "--active-at", String(Date.now())] : []))
   }
   function synchronize() {
     if (!snapshot || !snapshot.managed || !snapshot.pending || snapshot.externalChange || !snapshot.safeToSwitch || !activityAllowed || busy) return
-    execute("sync", ["--active"])
+    execute("sync", ["--active", "--active-at", String(Date.now())])
   }
   onOnBatteryChanged: refresh()
   onActivityAllowedChanged: if (activityAllowed) refresh()
@@ -70,13 +71,21 @@ Item {
           if (!response.preferences || !response.active || !response.revision) throw new Error("Incomplete idle response")
           root.snapshot = response
           process.received = true
+          root.statusError = ""
           if (process.action !== "status") root.error = ""
           if (process.action === "apply") root.saved()
-        } catch (error) { root.error = String(error).replace(/^Error: /, "") }
+        } catch (error) {
+          var message = String(error).replace(/^Error: /, "")
+          if (process.action === "status") root.statusError = message
+          else root.error = message
+        }
       }
     }
     onExited: function(code) {
-      if ((code !== 0 || !received) && !root.error) root.error = "Could not read Screen & lock settings."
+      if (code !== 0 || !received) {
+        if (action === "status" && !root.statusError) root.statusError = "Could not read Screen & lock settings."
+        else if (action !== "status" && !root.error) root.error = "Could not save Screen & lock settings."
+      }
       var checkSwitch = received && action !== "sync"
       Qt.callLater(function() {
         if (root.refreshQueued) { root.refreshQueued = false; root.refresh() }

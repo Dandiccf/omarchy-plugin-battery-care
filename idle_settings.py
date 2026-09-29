@@ -25,8 +25,8 @@ def pair(value):
     result = {}
     for key in ('screensaver', 'lock'):
         seconds = value.get(key)
-        if type(seconds) is not int or not 1 <= seconds <= 86400:
-            raise ValueError('Choose a timeout between 1 second and 24 hours.')
+        if type(seconds) is not int or not 0 <= seconds <= 86400:
+            raise ValueError('Choose a timeout up to 24 hours (zero means immediately, never disabled).')
         result[key] = seconds
     return result
 
@@ -35,8 +35,7 @@ def current_pair(config):
     idle = config.get('idle', {})
     if not isinstance(idle, dict):
         raise ValueError('Omarchy idle configuration is invalid.')
-    # Preserve existing zero (immediate) values for display, but never offer zero
-    # as Never or allow a newly submitted zero in our editor.
+    # Preserve zero as Omarchy's immediate action, never as disabled/Never.
     result = {k: idle.get(k, default) for k, default in [('screensaver', 150), ('lock', 300)]}
     if any(type(v) is not int or not 0 <= v <= 86400 for v in result.values()):
         raise ValueError('Existing Omarchy idle timeouts are outside the supported range.')
@@ -44,7 +43,7 @@ def current_pair(config):
 
 
 def preferences(value):
-    if not isinstance(value, dict) or value.get('version') != 1 or type(value.get('separate')) is not bool:
+    if not isinstance(value, dict) or type(value.get('version')) is not int or value['version'] != 1 or type(value.get('separate')) is not bool:
         raise ValueError('Screen and lock preferences are invalid.')
     return dict(version=1, separate=value['separate'],
                 **{key: pair(value.get(key)) for key in ('shared', 'battery', 'ac')})
@@ -128,8 +127,11 @@ def write_config(fd, raw, config, *, backup):
     battery.publish_file(fd, 'shell.json', json.dumps(config, indent=2) + '\n', replace=True)
 
 
-def operate(action, payload=None, expected=None, active=False):
-    with battery.locked(), battery.safe_directory(config_path().parent, create=False) as fd:
+def operate(action, payload=None, expected=None, active=False, active_at=None):
+    if action not in ('status', 'apply', 'sync'):
+        raise ValueError('Unknown idle action')
+    # Slow shell IPC must never hold up charge recovery or a charge action.
+    with battery.locked('idle-lock'), battery.safe_directory(config_path().parent, create=False) as fd:
         raw, config = read_config(fd)
         power = source()
         try:
@@ -158,6 +160,11 @@ def operate(action, payload=None, expected=None, active=False):
         # The UI's one-second activity monitor also gates this path. Never change
         # the stock service's timer intervals during an existing idle cycle.
         if active and safe_to_switch(state, locked):
+            # Recheck after lock acquisition and parsing. Activity evidence from
+            # an older UI request is not permission to restart idle intervals.
+            state, locked = runtime()
+            active = (active_at is not None and 0 <= time.time() * 1000 - active_at <= 1000)
+        if active and safe_to_switch(state, locked):
             idle.update(desired(prefs, power))
             idle[KEY]['lastApplied'] = desired(prefs, power)
         if updated != config:
@@ -171,10 +178,11 @@ def main():
     parser.add_argument('--preferences')
     parser.add_argument('--revision')
     parser.add_argument('--active', action='store_true')
+    parser.add_argument('--active-at', type=float)
     args = parser.parse_args()
     try:
         print(json.dumps(operate(args.action, json.loads(args.preferences) if args.preferences else None,
-                                 args.revision, args.active)))
+                                 args.revision, args.active, args.active_at)))
         return 0
     except Exception as error:
         print(json.dumps({'error': str(error)}))

@@ -179,12 +179,14 @@ def save_state(state):
 
 
 @contextlib.contextmanager
-def locked():
+def locked(name='lock'):
     with safe_directory(STATE, private=True) as directory_fd, contextlib.ExitStack() as stack:
-        fd = os.open('lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK,
+        if name not in ('lock', 'idle-lock'):
+            raise ValueError('Unknown Battery Care lock')
+        fd = os.open(name, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK,
                      0o600, dir_fd=directory_fd)
         stack.callback(os.close, fd)
-        verify_file(fd, 'lock')
+        verify_file(fd, name)
         deadline = time.monotonic() + 5
         while True:
             try:

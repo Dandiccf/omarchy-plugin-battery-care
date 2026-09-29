@@ -132,7 +132,7 @@ Panel {
   Component.onCompleted: refresh()
   onOpenedChanged: {
     if (opened) { refresh(); cursorActive = false; cursorIndex = 0; scroll.contentY = 0 }
-    else screenSettings.cancel()
+    else screenSettings.cancel(true)
   }
   onSelectedKeyChanged: cursorActive = false
   visible: batteryPresent || errorText !== ""

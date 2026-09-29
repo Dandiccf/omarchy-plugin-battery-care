@@ -21,7 +21,7 @@ Column {
   signal returnToPanel()
   spacing: Style.space(10)
 
-  function duration(value) { return Math.floor(value / 60) + "m" + (value % 60 ? " " + value % 60 + "s" : "") }
+  function duration(value) { return value === 0 ? "Immediately" : value < 60 ? value + "s" : Math.floor(value / 60) + "m" + (value % 60 ? " " + value % 60 + "s" : "") }
   function resetDraft() {
     if (!snapshot) return
     draft = JSON.parse(JSON.stringify(snapshot.preferences))
@@ -37,6 +37,7 @@ Column {
     acSaver.reset(draft.ac.screensaver); acLock.reset(draft.ac.lock)
   }
   function edit(power, key, seconds) {
+    if (controller.saving) return
     var next = JSON.parse(JSON.stringify(draft))
     next[power][key] = seconds
     draft = next
@@ -44,17 +45,20 @@ Column {
     message = ""
   }
   function toggleSeparate() {
+    if (!draft || controller.saving) return
     var next = JSON.parse(JSON.stringify(draft))
     next.separate = !next.separate
     if (!next.separate) next.shared = Object.assign({}, next[snapshot.source])
     draft = next; dirty = true; message = ""; resetEditors()
   }
   function toggle() {
+    if (controller.saving) return
     expanded = !expanded
-    if (expanded) { resetDraft(); controller.refresh(); Qt.callLater(function() { separateToggle.forceActiveFocus(); root.reveal(root) }) }
+    if (expanded) { resetDraft(); controller.refresh(); Qt.callLater(function() { if (root.draft) separateToggle.forceActiveFocus(); else root.forceActiveFocus(); root.reveal(root) }) }
     else cancel()
   }
-  function cancel() {
+  function cancel(force) {
+    if (controller.saving && !force) return
     batterySaver.close(); batteryLock.close(); acSaver.close(); acLock.close()
     resetDraft(); expanded = false; returnToPanel()
   }
@@ -79,6 +83,7 @@ Column {
     bordered: true
     leftAlign: true
     focusable: root.expanded
+    enabled: !root.controller.saving
     text: root.expanded ? "‹ Back · Screen & lock" : "Screen & lock · " + (root.snapshot ? (root.snapshot.source === "battery" ? "On battery" : "Plugged in") : "Loading…") + "  ›"
     onClicked: root.toggle()
   }
@@ -94,7 +99,7 @@ Column {
   Text {
     width: parent.width
     visible: text !== ""
-    text: root.controller.error || (root.snapshot && root.snapshot.warning) || (root.snapshot && root.snapshot.externalChange ? "Timeouts changed elsewhere. Reload, then Apply to resume management." : root.snapshot && root.snapshot.stayAwake ? "Paused by Stay Awake" : root.snapshot && root.snapshot.pending ? "Power-source settings will apply when you return." : root.message)
+    text: root.controller.error || root.controller.statusError || (root.snapshot && root.snapshot.warning) || (root.snapshot && root.snapshot.externalChange ? "Timeouts changed elsewhere. Reload, then Apply to resume management." : root.snapshot && root.snapshot.stayAwake ? "Paused by Stay Awake" : root.snapshot && root.snapshot.pending ? "Power-source settings will apply when you return." : root.message)
     color: Color.accent
     font.family: root.fontFamily
     font.pixelSize: Style.font.caption
@@ -103,6 +108,7 @@ Column {
   }
   Column {
     width: parent.width
+    enabled: !root.controller.saving
     visible: root.expanded && root.draft !== null
     spacing: Style.space(10)
     Toggle {

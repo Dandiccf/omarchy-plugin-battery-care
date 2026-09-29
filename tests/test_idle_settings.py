@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -41,7 +42,7 @@ class IdleSettingsTests(unittest.TestCase):
                     battery={'screensaver': 120, 'lock': 300}, ac={'screensaver': 600, 'lock': 900})
 
     def apply(self, prefs=None, active=True):
-        return idle.operate('apply', prefs or self.prefs(), idle.operate('status')['revision'], active)
+        return idle.operate('apply', prefs or self.prefs(), idle.operate('status')['revision'], active, time.time() * 1000)
 
     def test_status_inherits_both_pairs_and_never_writes_shell(self):
         result = idle.operate('status')
@@ -64,14 +65,14 @@ class IdleSettingsTests(unittest.TestCase):
     def test_ac_and_battery_switch_select_correct_pair(self):
         self.apply()
         self.power = 'ac'
-        result = idle.operate('sync', active=True)
+        result = idle.operate('sync', active=True, active_at=time.time() * 1000)
         self.assertEqual(result['active'], self.prefs()['ac'])
         self.power = 'battery'
-        self.assertEqual(idle.operate('sync', active=True)['active'], self.prefs()['battery'])
+        self.assertEqual(idle.operate('sync', active=True, active_at=time.time() * 1000)['active'], self.prefs()['battery'])
         self.assertEqual(len(list((self.base / 'state').glob('idle-shell-before-*'))), 1)
 
     def test_sync_with_no_preferences_does_not_write(self):
-        idle.operate('sync', active=True)
+        idle.operate('sync', active=True, active_at=time.time() * 1000)
         self.assertEqual(self.file.read_bytes(), self.original)
 
     def test_inactive_monitor_defers_switch_until_activity(self):
@@ -81,7 +82,7 @@ class IdleSettingsTests(unittest.TestCase):
         result = idle.operate('sync', active=False)
         self.assertTrue(result['pending'])
         self.assertEqual(self.file.read_bytes(), before)
-        self.assertFalse(idle.operate('sync', active=True)['pending'])
+        self.assertFalse(idle.operate('sync', active=True, active_at=time.time() * 1000)['pending'])
 
     def test_idle_cycle_and_locked_screen_never_change_deadlines(self):
         self.apply()
@@ -93,7 +94,7 @@ class IdleSettingsTests(unittest.TestCase):
                 self.locked = flag == 'locked'
                 if flag == 'lockProcess': self.live['processes']['lock'] = True
                 elif flag != 'locked': self.live[flag] = True
-                self.assertTrue(idle.operate('sync', active=True)['pending'])
+                self.assertTrue(idle.operate('sync', active=True, active_at=time.time() * 1000)['pending'])
                 self.assertEqual(self.file.read_bytes(), before)
 
     def test_apply_while_idle_saves_draft_but_preserves_active_pair(self):
@@ -108,7 +109,7 @@ class IdleSettingsTests(unittest.TestCase):
         prefs['separate'] = False
         self.apply(prefs)
         self.power = 'ac'
-        self.assertEqual(idle.operate('sync', active=True)['active'], prefs['shared'])
+        self.assertEqual(idle.operate('sync', active=True, active_at=time.time() * 1000)['active'], prefs['shared'])
 
     def test_stay_awake_is_reported_without_changing_its_state(self):
         self.live['stayAwake'] = True
@@ -123,7 +124,7 @@ class IdleSettingsTests(unittest.TestCase):
         before = self.file.read_bytes()
         self.assertTrue(idle.operate('status')['externalChange'])
         with self.assertRaisesRegex(RuntimeError, 'outside Battery Care'):
-            idle.operate('sync', active=True)
+            idle.operate('sync', active=True, active_at=time.time() * 1000)
         self.assertEqual(self.file.read_bytes(), before)
         self.assertFalse(self.apply()['externalChange'])
 
@@ -133,7 +134,7 @@ class IdleSettingsTests(unittest.TestCase):
         config['idle']['lock'] = 200
         self.file.write_text(json.dumps(config))
         with self.assertRaisesRegex(RuntimeError, 'changed elsewhere'):
-            idle.operate('apply', self.prefs(), revision, True)
+            idle.operate('apply', self.prefs(), revision, True, time.time() * 1000)
         self.assertEqual(self.read()['idle']['lock'], 200)
 
     def test_other_widget_edit_is_preserved_when_applying_older_draft(self):
@@ -141,11 +142,11 @@ class IdleSettingsTests(unittest.TestCase):
         config = self.read()
         config['bar']['newSetting'] = 'keep'
         self.file.write_text(json.dumps(config))
-        idle.operate('apply', self.prefs(), revision, True)
+        idle.operate('apply', self.prefs(), revision, True, time.time() * 1000)
         self.assertEqual(self.read()['bar']['newSetting'], 'keep')
 
     def test_invalid_custom_times_never_write(self):
-        for value in (0, -1, 86401, True, '300', 1.5):
+        for value in (-1, 86401, True, '300', 1.5):
             with self.subTest(value=value):
                 prefs = self.prefs()
                 prefs['battery']['lock'] = value
@@ -190,6 +191,40 @@ class IdleSettingsTests(unittest.TestCase):
         with patch.object(idle.battery, 'publish_file', side_effect=OSError('disk full')):
             with self.assertRaises(OSError): self.apply()
         self.assertEqual(self.file.read_bytes(), self.original)
+
+    def test_charge_lock_does_not_block_idle_status(self):
+        with idle.battery.locked():
+            self.assertFalse(idle.operate('status')['managed'])
+
+    def test_stale_or_missing_activity_evidence_defers_sync(self):
+        self.apply()
+        self.power = 'ac'
+        before = self.file.read_bytes()
+        for timestamp in (None, time.time() * 1000 - 2000, time.time() * 1000 + 2000):
+            with self.subTest(timestamp=timestamp):
+                self.assertTrue(idle.operate('sync', active=True, active_at=timestamp)['pending'])
+                self.assertEqual(self.file.read_bytes(), before)
+
+    def test_idle_cycle_started_during_request_blocks_switch(self):
+        self.apply()
+        self.power = 'ac'
+        before = self.file.read_bytes()
+        active = dict(idle=False, inIdleCycle=False, stayAwake=False)
+        now_idle = dict(active, idle=True, inIdleCycle=True)
+        with patch.object(idle, 'runtime', side_effect=[(active, False), (now_idle, False)]):
+            self.assertTrue(idle.operate('sync', active=True, active_at=time.time() * 1000)['pending'])
+        self.assertEqual(self.file.read_bytes(), before)
+
+    def test_existing_immediate_timeout_is_preserved_across_apply(self):
+        config = self.read()
+        config['idle']['lock'] = 0
+        self.file.write_text(json.dumps(config))
+        status = idle.operate('status')
+        prefs = status['preferences']
+        prefs['separate'] = True
+        prefs['battery']['screensaver'] = 60
+        self.assertEqual(self.apply(prefs)['active']['lock'], 0)
+        self.assertEqual(idle.operate('status')['preferences']['ac']['lock'], 0)
 
 
 if __name__ == '__main__': unittest.main()

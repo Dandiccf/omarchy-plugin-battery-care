@@ -13,8 +13,8 @@ assert str(fixture).startswith('/tmp/battery-care-qml.')
 assert str(idle.config_path()).startswith(str(fixture.parent) + '/')
 assert str(idle.battery.STATE).startswith(str(fixture.parent) + '/')
 
-if sys.argv[1] in ('test-ac-idle', 'test-ac-active'):
-    fixture.write_text(json.dumps({'source': 'ac', 'idle': sys.argv[1] == 'test-ac-idle'}))
+if sys.argv[1] in ('test-ac-idle', 'test-ac-active', 'test-status-error'):
+    fixture.write_text(json.dumps({'source': 'unknown' if sys.argv[1] == 'test-status-error' else 'ac', 'idle': sys.argv[1] == 'test-ac-idle'}))
     sys.exit(0)
 
 def fixture_data():

@@ -11,6 +11,7 @@ ShellRoot {
     property bool busy: false
     property bool saving: false
     property string error: ""
+    property string statusError: ""
     property int saves: 0
     signal saved()
     function refresh() {}
@@ -49,6 +50,11 @@ ShellRoot {
         var update = JSON.parse(JSON.stringify(controller.snapshot)); update.stayAwake = true
         controller.snapshot = update
         check(editor.draft.ac.lock === 900 && editor.dirty, "poll must preserve unsaved edits")
+        controller.saving = true
+        editor.edit("ac", "lock", 42)
+        editor.cancel()
+        check(editor.expanded && editor.draft.ac.lock === 900, "in-flight save must not accept edits or cancellation")
+        controller.saving = false
         editor.apply()
         check(controller.saves === 1 && !editor.dirty, "apply saves exactly once")
         check(controller.snapshot.preferences.ac.lock === 900, "AC timeout saved")

@@ -18,6 +18,7 @@ Column {
 
   function label(value) {
     if (value === 0) return "Immediately"
+    if (value < 60) return value + "s"
     return Math.floor(value / 60) + "m" + (value % 60 ? " " + value % 60 + "s" : "")
   }
   function reset(value) {
