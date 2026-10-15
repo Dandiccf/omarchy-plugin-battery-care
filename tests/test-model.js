@@ -36,13 +36,14 @@ assert.equal(m.nextControl(1, 1, [0, 2, 3], true), 0)
 assert.equal(m.nextControl(0, 1, [], true), -1)
 console.log('10 additional review regression assertions passed')
 // Connecting AC while the battery is inside its protection band must be visible
-// without implying that current is flowing into the battery.
+// without implying that current is flowing into the battery: show the plain
+// battery-level glyph, matching Omarchy's stock power widget.
 const held = {...b, enabled: true, percentage: 77}
 assert.equal(m.status(held, false), 'Plugged in · charge paused')
-assert.equal(m.batteryIcon(held, false), '󰚥')
-assert.equal(m.batteryIcon({...held, state: 1}, false), '󰂄')
-assert.notEqual(m.batteryIcon({...held, state: 2}, true), '󰚥')
+assert.equal(m.batteryIcon(held, false), '󰂁')
+assert.equal(m.batteryIcon({...held, state: 1}, false), '󰂊')
+assert.equal(m.batteryIcon({...held, state: 2}, true), '󰂁')
 assert.equal(m.status({...held, state: 2}, true), 'On battery')
-assert.equal(m.batteryIcon({...b, state: 4, percentage: 100}, false), '󰚥')
+assert.equal(m.batteryIcon({...b, state: 4, percentage: 100}, false), '󰂅')
 assert.match(m.explanation(held, false), /Stops charging at 80%.*Resumes below 75%/)
 console.log('7 plugged-in presentation regression assertions passed')
