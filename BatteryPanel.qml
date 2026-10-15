@@ -185,7 +185,8 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: !root.statusValid ? "󰂃" : (root.showPercentage && !vertical ? Model.percent(root.battery.percentage) + " " : "") + Model.batteryIcon(root.battery, root.batteryPower)
+    text: !root.statusValid ? "󰂃" : Model.batteryIcon(root.battery, root.batteryPower)
+    labelText: root.statusValid && root.showPercentage && !vertical ? Model.percent(root.battery.percentage) : ""
     slotSize: Style.bar.iconSlot * (root.showPercentage && !vertical ? 2 : 1)
     tooltipText: root.statusValid ? "Battery Care · " + Model.status(root.battery, root.batteryPower) : "Battery Care · Status unavailable"
     onPressed: function(b) { if (b === Qt.RightButton) root.togglePercentage(); else root.toggle() }

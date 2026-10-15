@@ -45,11 +45,15 @@ function explanation(b, onBattery) {
   }
   return "Protection is off. " + (b.end != null ? "The available " + b.end + "% preset is not active." : "Enable protection to use the firmware limit.")
 }
+// Glyph sets mirror Omarchy's stock power widget so the tray icon matches it.
 function batteryIcon(b, onBattery) {
-  var icons = ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
-  if (b.state === 1 && !onBattery) return "󰂄"
-  if (!onBattery) return "󰚥"
-  return icons[Math.max(0, Math.min(9, Math.floor((b.percentage || 0) / 10)))]
+  var chargingIcons = ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"]
+  var defaultIcons = ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
+  var index = Math.max(0, Math.min(9, Math.floor((b.percentage || 0) / 10)))
+  if (holding(b, onBattery)) return defaultIcons[index]
+  if (b.state === 4) return "󰂅"
+  if (!onBattery) return chargingIcons[index]
+  return defaultIcons[index]
 }
 function profileIcon(name) {
   return name === "power-saver" ? "󰌪" : name === "performance" ? "󰓅" : "󰊚"
