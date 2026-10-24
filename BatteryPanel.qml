@@ -34,16 +34,18 @@ Panel {
   readonly property bool showPercentage: setting("showPercentage", true) === true
   property string helper: decodeURIComponent(Qt.resolvedUrl("battery.py").toString().replace(/^file:\/\//, ""))
   readonly property real openPanelIndicatorWidth: showPercentage && !button.vertical ? button.glyphPaintedWidth : 0
-  readonly property int controlCount: (battery.supported ? 2 : 0) + profiles.length
+  readonly property int chargeControls: battery.supported ? 3 : 0
+  readonly property int controlCount: chargeControls + profiles.length
   readonly property var enabledControls: {
     var result = []
     if (!statusValid) return idleController.enabled ? [controlCount] : result
     if (battery.supported && !busy) {
       result.push(0)
       if (!batteryPower || Model.fullChargeActive(battery)) result.push(1)
+      result.push(2)
     }
     if (!profileProc.running) {
-      for (var i = 0; i < profiles.length; ++i) result.push(i + (battery.supported ? 2 : 0))
+      for (var i = 0; i < profiles.length; ++i) result.push(i + chargeControls)
     }
     if (idleController.enabled) result.push(controlCount)
     return result
@@ -94,8 +96,8 @@ Panel {
   function activateCursor() {
     if (enabledControls.indexOf(cursorIndex) < 0) return
     if (cursorIndex === controlCount) { screenSettings.toggle(); return }
-    var offset = battery.supported ? 2 : 0
-    if (offset && cursorIndex < 2) charge(cursorIndex === 0 ? Model.protectionAction(battery) : Model.fullChargeAction(battery))
+    var offset = chargeControls
+    if (offset && cursorIndex < offset) charge(cursorIndex === 0 ? Model.protectionAction(battery) : cursorIndex === 1 ? Model.fullChargeAction(battery) : Model.autoAction(battery))
     else if (profiles[cursorIndex - offset]) setProfile(profiles[cursorIndex - offset])
   }
   function selectBattery(delta) {
@@ -107,7 +109,8 @@ Panel {
   function revealControl(index) {
     var item = index === controlCount ? screenSettings : index === 0 && battery.supported ? protectButton
       : index === 1 && battery.supported ? fullButton
-      : profileRepeater.itemAt(index - (battery.supported ? 2 : 0))
+      : index === 2 && battery.supported ? autoButton
+      : profileRepeater.itemAt(index - chargeControls)
     revealItem(item)
   }
   function revealItem(item) {
@@ -344,6 +347,22 @@ Panel {
             tooltipText: Model.fullChargeActive(root.battery) ? "Restore the charge limit now" : (root.batteryPower ? "Connect the charger first" : "Restore protection after unplugging")
             onClicked: root.charge(Model.fullChargeAction(root.battery))
           }
+          CareButton {
+            id: autoButton
+            navigationOwner: root
+            navigationIndex: 2
+            width: (parent.width - parent.spacing * (parent.columns - 1)) / parent.columns
+            text: "Only with external display" + (root.battery.auto ? " · On" : " · Off")
+            tooltipText: root.battery.auto ? "Protect the battery at all times" : "Limit charging only while an external display is connected"
+            foreground: root.bar.foreground
+            fontFamily: root.bar.fontFamily
+            fontSize: Style.font.bodySmall
+            bordered: true
+            active: root.battery.auto === true
+            enabled: !root.busy && root.statusValid
+            opacity: enabled ? 1 : 0.5
+            onClicked: root.charge(Model.autoAction(root.battery))
+          }
         }
         Text {
           width: parent.width
@@ -416,7 +435,7 @@ Panel {
               required property var modelData
               required property int index
               navigationOwner: root
-              navigationIndex: index + (root.battery.supported ? 2 : 0)
+              navigationIndex: index + root.chargeControls
               width: parent.width < Style.space(380) ? parent.width : (parent.width - parent.spacing * Math.max(0, root.profiles.length - 1)) / Math.max(1, root.profiles.length)
               text: String(modelData).charAt(0).toUpperCase() + String(modelData).slice(1)
               iconText: Model.profileIcon(modelData)

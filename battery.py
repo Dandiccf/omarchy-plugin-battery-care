@@ -69,6 +69,27 @@ def read_number(path):
         return None
 
 
+INTERNAL_CONNECTORS = ('eDP', 'LVDS', 'DSI')
+
+
+def external_display(drm=Path('/sys/class/drm')):
+    """True when a connected DRM output is not a built-in panel."""
+    try:
+        connectors = list(drm.glob('card*-*'))
+    except OSError:
+        return False
+    for connector in connectors:
+        name = connector.name.split('-', 1)[1]
+        if name.startswith(INTERNAL_CONNECTORS):
+            continue
+        try:
+            if (connector / 'status').read_text().strip() == 'connected':
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def boot_id():
     return Path('/proc/sys/kernel/random/boot_id').read_text().strip()
 
@@ -167,7 +188,8 @@ def read_state():
             raise ValueError('Invalid battery-care state')
         for key, record in state.get('batteries', {}).items():
             if (not isinstance(record, dict) or record.get('mode') not in ('protect', 'full', 'off', '')
-                    or not isinstance(record.get('boot'), str)):
+                    or not isinstance(record.get('boot'), str)
+                    or not isinstance(record.get('external', False), bool)):
                 raise ValueError('Invalid battery-care recovery record for ' + key)
         return state
 
@@ -270,8 +292,9 @@ def remove_guard(directory_fd):
     run('systemctl', '--user', 'daemon-reload')
 
 
-def apply_action(api, state, device, action, boot, on_battery):
-    if action not in ('protect', 'full', 'off'):
+def apply_action(api, state, device, action, boot, on_battery, external=None):
+    # 'auto' is protection that only holds while an external display is connected.
+    if action not in ('protect', 'full', 'off', 'auto'):
         raise ValueError('Unknown charge action')
     if not device.get('ChargeThresholdSupported'):
         raise RuntimeError('This battery does not support UPower charge limits.')
@@ -281,10 +304,17 @@ def apply_action(api, state, device, action, boot, on_battery):
     # Save the recovery intention BEFORE disabling protection. Interrupted actions
     # therefore still restore the cap after unplugging or the next login/boot.
     previous = records.get(device['key'])
-    records[device['key']] = {'mode': action, 'boot': boot}
+    record = {'mode': 'protect' if action == 'auto' else action, 'boot': boot}
+    if action == 'auto' or (action == 'full' and (previous or {}).get('external')):
+        record['external'] = True  # A full-charge session returns to the same rule.
+    records[device['key']] = record
     save_state(state)
+    if action == 'auto':
+        wanted = external_display() if external is None else external
+    else:
+        wanted = action == 'protect'
     try:
-        api.enable(device, action == 'protect')
+        api.enable(device, wanted)
         records[device['key']].pop('error', None)
     except Exception as error:
         if action == 'off':
@@ -295,7 +325,7 @@ def apply_action(api, state, device, action, boot, on_battery):
         save_state(state)
 
 
-def reconcile(api, state, devices, boot, on_battery):
+def reconcile(api, state, devices, boot, on_battery, external=None):
     before = json.dumps(state, sort_keys=True)
     for device in devices:
         record = state.get('batteries', {}).get(device['key'])
@@ -305,8 +335,13 @@ def reconcile(api, state, devices, boot, on_battery):
             record['mode'] = 'protect'
         if record['mode'] == 'protect':
             try:
-                if not device.get('ChargeThresholdEnabled'):
-                    api.enable(device, True)
+                wanted = True
+                if record.get('external'):
+                    if external is None:
+                        external = external_display()
+                    wanted = external
+                if bool(device.get('ChargeThresholdEnabled')) != wanted:
+                    api.enable(device, wanted)
                 record.pop('error', None)
             except Exception as error:
                 record['error'] = str(error)
@@ -374,18 +409,19 @@ def snapshot(api, state):
             'cycles': number(d.get('ChargeCycles'), -1), 'timeToEmpty': number(d.get('TimeToEmpty'), 0),
             'timeToFull': number(d.get('TimeToFull'), 0), 'supported': bool(d.get('ChargeThresholdSupported')),
             'enabled': enabled, 'start': start, 'end': end, 'actualStart': d.get('actualStart'), 'actualEnd': actual_end,
-            'mismatch': mismatch, 'mode': record.get('mode', ''), 'error': record.get('error', '')
+            'mismatch': mismatch, 'mode': record.get('mode', ''), 'auto': bool(record.get('external')),
+            'error': record.get('error', '')
         })
-    return {'batteries': batteries, 'onBattery': api.on_battery()}
+    return {'batteries': batteries, 'onBattery': api.on_battery(), 'externalDisplay': external_display()}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['status', 'protect', 'full', 'off', 'reconcile', 'release'])
+    parser.add_argument('action', choices=['status', 'protect', 'full', 'off', 'auto', 'reconcile', 'release'])
     parser.add_argument('--battery', default='')
     args = parser.parse_args()
     try:
-        api = UPower(interactive=args.action in ('protect', 'full', 'off', 'release'))
+        api = UPower(interactive=args.action in ('protect', 'full', 'off', 'auto', 'release'))
         with locked():
             try:
                 state = read_state()
@@ -399,7 +435,7 @@ def main():
             if args.action == 'reconcile':
                 reconcile(api, state, api.devices(), boot_id(), api.on_battery())
                 return 0
-            elif args.action in ('protect', 'full', 'off'):
+            elif args.action in ('protect', 'full', 'off', 'auto'):
                 devices = api.devices()
                 device = next((d for d in devices if d['key'] == args.battery), None)
                 if device is None:

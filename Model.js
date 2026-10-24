@@ -7,6 +7,7 @@ function duration(seconds) {
 function percent(value) { return typeof value === "number" && isFinite(value) ? Math.round(value) + "%" : "—" }
 function limitLabel(b) { return b.end !== null && b.end !== undefined ? b.end + "% limit" : "Protect battery" }
 function protectionAction(b) { return b.enabled === true ? "off" : "protect" }
+function autoAction(b) { return b.auto === true ? "protect" : "auto" }
 function fullChargeActive(b) { return b.mode === "full" && b.enabled === false }
 function fullChargeAction(b) { return fullChargeActive(b) ? "protect" : "full" }
 function nextControl(index, delta, enabled, active) {
@@ -37,10 +38,12 @@ function explanation(b, onBattery) {
   if (b.mismatch) return "The hardware limit differs from UPower. Another battery manager may be changing it."
   if (b.mode === "full" && !b.enabled) return "Full charge for this session. Protection returns after unplugging (checked every 15 seconds), or at the next login after a reboot."
   if (b.mode === "off" && !b.enabled) return "Protection is off. Charging to 100% is allowed until you turn the limit on again."
+  if (b.auto && !b.enabled) return "Limit applies only while an external display is connected. No external display now, so charging to 100% is allowed."
   if (b.enabled) {
     var text = b.end != null ? "Stops charging at " + b.end + "%." : "Uses the battery’s firmware charge limit."
     if (b.start != null && b.start > 0) text += " Resumes below " + b.start + "%."
     if (b.end != null && b.percentage > b.end) text += " It will not actively drain the battery."
+    if (b.auto) text += " Applies only while an external display is connected."
     return text
   }
   return "Protection is off. " + (b.end != null ? "The available " + b.end + "% preset is not active." : "Enable protection to use the firmware limit.")
@@ -62,4 +65,4 @@ function parseProfiles(raw) {
   })
   return { profiles: profiles, activeProfile: active }
 }
-if (typeof module !== "undefined") module.exports = { duration, percent, limitLabel, protectionAction, fullChargeActive, fullChargeAction, nextControl, holding, status, explanation, batteryIcon, profileIcon, parseProfiles }
+if (typeof module !== "undefined") module.exports = { duration, percent, limitLabel, protectionAction, autoAction, fullChargeActive, fullChargeAction, nextControl, holding, status, explanation, batteryIcon, profileIcon, parseProfiles }
