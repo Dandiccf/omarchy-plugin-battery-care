@@ -33,6 +33,15 @@ ShellRoot {
         if (!panel.statusValid || panel.busy) return
         if (phase === 0) {
           check(panel.battery.enabled, "initial protection")
+          var button = panel.children.find(function(child) { return child.percentageLabel !== undefined })
+          check(button && button.percentageLabel.endsWith("%"), "percentage label available")
+          if (button.separateLabel) {
+            check(button.labelText === button.percentageLabel, "modern bar has separate percentage label")
+            check(button.text.indexOf("%") < 0, "modern optical glyph only contains battery icon")
+          } else check(button.text.indexOf("%") >= 0, "legacy bar combines percentage and icon")
+          mockBar.vertical = true
+          check(button.percentageLabel === "" && button.text.indexOf("%") < 0, "vertical bar hides percentage")
+          mockBar.vertical = false
           panel.charge("off"); phase++
         } else if (phase === 1) {
           check(panel.battery.mode === "off" && !panel.battery.enabled, "Off command routing")

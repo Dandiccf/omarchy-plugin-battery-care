@@ -125,3 +125,11 @@ Regression coverage includes the inactive 80% preset bug, reboot and unplug reco
 Based on the structure and styling of Omarchy’s Power widget, installed Omarchy version 4.0.4-1. Shared `qs.Ui` components keep it aligned with the desktop theme. MIT licensed; upstream attribution is in LICENSE.
 
 The code and usability review, including the 0.2.1 marketplace file-safety fixes and 0.3.0 Screen & lock feature, is recorded in [REVIEW.md](REVIEW.md), with test boundaries and remaining limitations.
+
+## Languages
+
+On Omarchy 4.5+, Battery Care follows Setup → Language through the native `Commons.Translations` API, including live changes. On earlier Omarchy 4.x shells, it selects translations from the process environment (`LC_ALL`, then `LC_MESSAGES`, then `LANG`, with Qt’s locale as a final fallback). Restart the shell after changing the system locale. `C` and `POSIX` select English. The battery indicator supports both the older combined text and newer separate label APIs. English, German, Spanish, French, Portuguese, Italian, Polish, Russian, Arabic, Hindi, Japanese, Korean, and Simplified Chinese are included; other languages fall back to English. Spanish (Mexico) and Portuguese (Brazil) currently use the base Spanish and Portuguese catalogs. Technical diagnostics from UPower, system commands, and the filesystem are preserved when no translation is available.
+
+To add a language, copy `i18n/en.json` to `i18n/<language-code>.json` and translate the values, keeping the English keys and `%1`/`%2` placeholders intact. Regional variants fall back to their base language first. Run `bash tests/run-qml.sh` to check the QML UI and live language switching.
+
+Compatibility checks use the installed 4.5 shell and official 4.0.0 and 4.0.4 source fixtures with no native translation API. To test a downloaded older shell with current Qt, first run `python3 tests/prepare-legacy-fixture.py /path/to/old/shell /tmp/legacy-shell`; this qualifies upstream `Color` references in a disposable copy to avoid a newer-Qt namespace collision without changing the older component APIs. Then run `BATTERY_CARE_TEST_SHELL=/tmp/legacy-shell bash tests/run-qml.sh`. These are component-level checks on the current Qt/Quickshell runtime, not a full older desktop installation.

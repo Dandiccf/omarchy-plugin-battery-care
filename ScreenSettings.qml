@@ -1,13 +1,17 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 Column {
   id: root
+  LayoutMirroring.enabled: strings.rightToLeft
+  LayoutMirroring.childrenInherit: true
+  CareTranslations { id: strings; directory: Qt.resolvedUrl("i18n") }
   required property var controller
   property var navigationOwner: null
   property int navigationIndex: 0
-  property color foreground: Color.foreground
+  property color foreground: Commons.Color.foreground
   property string fontFamily: Style.font.family
   property bool expanded: false
   property var draft: null
@@ -21,7 +25,7 @@ Column {
   signal returnToPanel()
   spacing: Style.space(10)
 
-  function duration(value) { return value === 0 ? "Immediately" : value < 60 ? value + "s" : Math.floor(value / 60) + "m" + (value % 60 ? " " + value % 60 + "s" : "") }
+  function duration(value) { return value === 0 ? strings.t("Immediately") : value < 60 ? strings.formatNumber(value) + "s" : strings.formatNumber(Math.floor(value / 60)) + "m" + (value % 60 ? " " + strings.formatNumber(value % 60) + "s" : "") }
   function resetDraft() {
     if (!snapshot) return
     draft = JSON.parse(JSON.stringify(snapshot.preferences))
@@ -84,27 +88,27 @@ Column {
     leftAlign: true
     focusable: root.expanded
     enabled: !root.controller.saving
-    text: root.expanded ? "‹ Back · Screen & lock" : "Screen & lock · " + (root.snapshot ? (root.snapshot.source === "battery" ? "On battery" : "Plugged in") : "Loading…") + "  ›"
+    text: root.expanded ? strings.t("‹ Back · Screen & lock") : strings.t("Screen & lock · %1  ›").arg(root.snapshot ? (root.snapshot.source === "battery" ? strings.t("On battery") : strings.t("Plugged in")) : strings.t("Loading…"))
     onClicked: root.toggle()
   }
-  Text {
+  Text { textFormat: Text.PlainText;
     width: parent.width
-    text: root.snapshot ? "Screensaver " + root.duration(root.snapshot.active.screensaver) + " · Lock " + root.duration(root.snapshot.active.lock) : "Reading Omarchy idle settings…"
+    text: root.snapshot ? strings.t("Screensaver %1 · Lock %2").arg(root.duration(root.snapshot.active.screensaver)).arg(root.duration(root.snapshot.active.lock)) : strings.t("Reading Omarchy idle settings…")
     color: root.foreground
     opacity: 0.7
     font.family: root.fontFamily
     font.pixelSize: Style.font.caption
     wrapMode: Text.WordWrap
   }
-  Text {
+  Text { textFormat: Text.PlainText;
     width: parent.width
     visible: text !== ""
-    text: root.controller.error || root.controller.statusError || (root.snapshot && root.snapshot.warning) || (root.snapshot && root.snapshot.externalChange ? "Timeouts changed elsewhere. Reload, then Apply to resume management." : root.snapshot && root.snapshot.stayAwake ? "Paused by Stay Awake" : root.snapshot && root.snapshot.pending ? "Power-source settings will apply when you return." : root.message)
-    color: Color.accent
+    text: (root.controller.error ? strings.t(root.controller.error, root.controller.error) : "") || (root.controller.statusError ? strings.t(root.controller.statusError, root.controller.statusError) : "") || (root.snapshot && root.snapshot.warning ? strings.t(root.snapshot.warning, root.snapshot.warning) : "") || (root.snapshot && root.snapshot.externalChange ? strings.t("Timeouts changed elsewhere. Reload, then Apply to resume management.") : root.snapshot && root.snapshot.stayAwake ? strings.t("Paused by Stay Awake") : root.snapshot && root.snapshot.pending ? strings.t("Power-source settings will apply when you return.") : (root.message ? strings.t(root.message) : ""))
+    color: Commons.Color.accent
     font.family: root.fontFamily
     font.pixelSize: Style.font.caption
     wrapMode: Text.WordWrap
-    textFormat: Text.PlainText
+
   }
   Column {
     width: parent.width
@@ -114,8 +118,8 @@ Column {
     Toggle {
       id: separateToggle
       width: parent.width
-      label: "Separate power-source settings"
-      description: "Use different timeouts on battery and plugged in"
+      label: strings.t("Separate power-source settings")
+      description: strings.t("Use different timeouts on battery and plugged in")
       checked: root.draft ? root.draft.separate : false
       foreground: root.foreground
       fontFamily: root.fontFamily
@@ -131,28 +135,28 @@ Column {
         width: (parent.width - parent.spacing * (parent.columns - 1)) / parent.columns
         spacing: Style.space(6)
         Label {
-          text: root.draft && root.draft.separate ? "ON BATTERY" + (root.snapshot.source === "battery" ? " · Active" : "") : "BOTH POWER SOURCES"
-          color: root.snapshot && root.snapshot.source === "battery" ? Color.accent : root.foreground
+          text: root.draft && root.draft.separate ? strings.t(root.snapshot.source === "battery" ? "ON BATTERY · Active" : "ON BATTERY") : strings.t("BOTH POWER SOURCES")
+          color: root.snapshot && root.snapshot.source === "battery" ? Commons.Color.accent : root.foreground
         }
-        Label { text: "Screensaver" }
+        Label { text: strings.t("Screensaver") }
         TimeoutEditor { id: batterySaver; width: parent.width; foreground: root.foreground; fontFamily: root.fontFamily; onEditingStarted: root.dirty = true; onEdited: function(value) { root.edit(root.draft.separate ? "battery" : "shared", "screensaver", value) } onFocusMoved: function(item) { root.reveal(item) } }
-        Label { text: "Lock screen" }
+        Label { text: strings.t("Lock screen") }
         TimeoutEditor { id: batteryLock; width: parent.width; foreground: root.foreground; fontFamily: root.fontFamily; onEditingStarted: root.dirty = true; onEdited: function(value) { root.edit(root.draft.separate ? "battery" : "shared", "lock", value) } onFocusMoved: function(item) { root.reveal(item) } }
       }
       Column {
         width: (parent.width - parent.spacing * (parent.columns - 1)) / parent.columns
         visible: root.draft && root.draft.separate
         spacing: Style.space(6)
-        Label { text: "PLUGGED IN" + (root.snapshot && root.snapshot.source === "ac" ? " · Active" : ""); color: root.snapshot && root.snapshot.source === "ac" ? Color.accent : root.foreground }
-        Label { text: "Screensaver" }
+        Label { text: strings.t(root.snapshot && root.snapshot.source === "ac" ? "PLUGGED IN · Active" : "PLUGGED IN"); color: root.snapshot && root.snapshot.source === "ac" ? Commons.Color.accent : root.foreground }
+        Label { text: strings.t("Screensaver") }
         TimeoutEditor { id: acSaver; width: parent.width; foreground: root.foreground; fontFamily: root.fontFamily; onEditingStarted: root.dirty = true; onEdited: function(value) { root.edit("ac", "screensaver", value) } onFocusMoved: function(item) { root.reveal(item) } }
-        Label { text: "Lock screen" }
+        Label { text: strings.t("Lock screen") }
         TimeoutEditor { id: acLock; width: parent.width; foreground: root.foreground; fontFamily: root.fontFamily; onEditingStarted: root.dirty = true; onEdited: function(value) { root.edit("ac", "lock", value) } onFocusMoved: function(item) { root.reveal(item) } }
       }
     }
-    Text {
+    Text { textFormat: Text.PlainText;
       width: parent.width
-      text: "Both times are measured from your last activity. Automatic switching waits for activity while you’re away."
+      text: strings.t("Both times are measured from your last activity. Automatic switching waits for activity while you’re away.")
       color: root.foreground
       opacity: 0.65
       font.family: root.fontFamily
@@ -162,12 +166,12 @@ Column {
     Flow {
       width: parent.width
       spacing: Style.space(6)
-      Button { text: root.controller.saving ? "Saving…" : "Apply"; enabled: root.valid && root.needsApply && !root.controller.busy; opacity: enabled ? 1 : 0.5; foreground: root.foreground; fontFamily: root.fontFamily; fontSize: Style.font.bodySmall; bordered: true; focusable: true; onClicked: root.apply(); onActiveFocusChanged: if (activeFocus) root.reveal(this) }
-      Button { text: "Cancel"; enabled: !root.controller.saving; foreground: root.foreground; fontFamily: root.fontFamily; fontSize: Style.font.bodySmall; bordered: true; focusable: true; onClicked: root.cancel(); onActiveFocusChanged: if (activeFocus) root.reveal(this) }
-      Button { text: "Reload"; enabled: !root.controller.busy; foreground: root.foreground; fontFamily: root.fontFamily; fontSize: Style.font.bodySmall; focusable: true; onClicked: { root.dirty = false; root.controller.error = ""; root.resetDraft(); root.controller.refresh() } onActiveFocusChanged: if (activeFocus) root.reveal(this) }
+      Button { text: root.controller.saving ? strings.t("Saving…") : strings.t("Apply"); enabled: root.valid && root.needsApply && !root.controller.busy; opacity: enabled ? 1 : 0.5; foreground: root.foreground; fontFamily: root.fontFamily; fontSize: Style.font.bodySmall; bordered: true; focusable: true; onClicked: root.apply(); onActiveFocusChanged: if (activeFocus) root.reveal(this) }
+      Button { text: strings.t("Cancel"); enabled: !root.controller.saving; foreground: root.foreground; fontFamily: root.fontFamily; fontSize: Style.font.bodySmall; bordered: true; focusable: true; onClicked: root.cancel(); onActiveFocusChanged: if (activeFocus) root.reveal(this) }
+      Button { text: strings.t("Reload"); enabled: !root.controller.busy; foreground: root.foreground; fontFamily: root.fontFamily; fontSize: Style.font.bodySmall; focusable: true; onClicked: { root.dirty = false; root.controller.error = ""; root.resetDraft(); root.controller.refresh() } onActiveFocusChanged: if (activeFocus) root.reveal(this) }
     }
   }
-  component Label: Text {
+  component Label: Text { textFormat: Text.PlainText;
     color: root.foreground
     font.family: root.fontFamily
     font.pixelSize: Style.font.caption

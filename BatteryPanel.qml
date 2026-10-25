@@ -3,11 +3,13 @@ import QtQuick.Controls as Controls
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "Model.js" as Model
 
 Panel {
   id: root
+  CareTranslations { id: strings; directory: Qt.resolvedUrl("i18n") }
   moduleName: "omarchy.power"
   ipcTarget: "omarchy.power"
   manageIpc: false
@@ -74,8 +76,8 @@ Panel {
       errorText = ""
     } catch (e) {
       statusValid = false
-      if (fromAction) actionError = "Could not read action result. " + e
-      else errorText = "Could not read battery status. " + e
+      if (fromAction) actionError = strings.t("Could not read action result. %1").arg(String(e))
+      else errorText = strings.t("Could not read battery status. %1").arg(String(e))
     }
   }
   function charge(action) {
@@ -185,9 +187,14 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: !root.statusValid ? "󰂃" : (root.showPercentage && !vertical ? Model.percent(root.battery.percentage) + " " : "") + Model.batteryIcon(root.battery, root.batteryPower)
+    readonly property bool separateLabel: "labelText" in button
+    readonly property string percentageLabel: root.statusValid && root.showPercentage && !vertical ? Model.percent(root.battery.percentage, strings) : ""
+    text: !root.statusValid ? "󰂃" : (separateLabel || !percentageLabel ? "" : percentageLabel + " ") + Model.batteryIcon(root.battery, root.batteryPower)
+    Component.onCompleted: {
+      if (separateLabel) button.labelText = Qt.binding(function() { return button.percentageLabel })
+    }
     slotSize: Style.bar.iconSlot * (root.showPercentage && !vertical ? 2 : 1)
-    tooltipText: root.statusValid ? "Battery Care · " + Model.status(root.battery, root.batteryPower) : "Battery Care · Status unavailable"
+    tooltipText: root.statusValid ? strings.t("Battery Care · %1").arg(Model.status(root.battery, root.batteryPower, strings)) : strings.t("Battery Care · %1").arg(strings.t("Status unavailable"))
     onPressed: function(b) { if (b === Qt.RightButton) root.togglePercentage(); else root.toggle() }
   }
   KeyboardPanel {
@@ -201,6 +208,8 @@ Panel {
     contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(620))
     PanelKeyCatcher {
       id: keyCatcher
+      LayoutMirroring.enabled: strings.rightToLeft
+      LayoutMirroring.childrenInherit: true
       anchors.fill: parent
       blocked: screenSettings.expanded
       onMoveRequested: function(dx, dy) {
@@ -232,7 +241,7 @@ Panel {
         Row {
           width: parent.width
           spacing: Style.space(12)
-          Text {
+          Text { textFormat: Text.PlainText;
             text: Model.batteryIcon(root.battery, root.batteryPower)
             color: root.bar.foreground
             font.family: root.bar.fontFamily
@@ -241,7 +250,7 @@ Panel {
           Column {
             width: parent.width - parent.children[0].implicitWidth - heroPercent.implicitWidth - parent.spacing * 2
             spacing: Style.space(4)
-            Text {
+            Text { textFormat: Text.PlainText;
               width: parent.width
               text: "Battery Care"
               elide: Text.ElideRight
@@ -250,9 +259,9 @@ Panel {
               font.pixelSize: Style.font.title
               font.bold: true
             }
-            Text {
+            Text { textFormat: Text.PlainText;
               width: parent.width
-              text: root.statusValid ? Model.status(root.battery, root.batteryPower) : "Status unavailable · showing last reading"
+              text: root.statusValid ? Model.status(root.battery, root.batteryPower, strings) : strings.t("Status unavailable · showing last reading")
               color: root.bar.foreground
               opacity: 0.7
               font.family: root.bar.fontFamily
@@ -260,9 +269,9 @@ Panel {
               wrapMode: Text.WordWrap
             }
           }
-          Text {
+          Text { textFormat: Text.PlainText;
             id: heroPercent
-            text: Model.percent(root.battery.percentage)
+            text: Model.percent(root.battery.percentage, strings)
             color: root.bar.foreground
             font.family: root.bar.fontFamily
             font.pixelSize: Style.font.displayLarge
@@ -303,10 +312,10 @@ Panel {
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height + Style.space(6)
             width: Style.space(2)
-            color: Color.accent
+            color: Commons.Color.accent
           }
         }
-        PanelSectionHeader { text: "CHARGE PROTECTION"; foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
+        PanelSectionHeader { text: strings.t("CHARGE PROTECTION"); foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
         Grid {
           width: parent.width
           columns: width < Style.space(380) ? 1 : 2
@@ -317,8 +326,8 @@ Panel {
             navigationOwner: root
             navigationIndex: 0
             width: (parent.width - parent.spacing * (parent.columns - 1)) / parent.columns
-            text: Model.limitLabel(root.battery) + (root.battery.enabled ? " · On" : " · Off")
-            tooltipText: root.battery.enabled ? "Turn off the limit until you enable it again" : "Enable charge protection"
+            text: strings.t(root.battery.enabled ? "%1 · On" : "%1 · Off").arg(Model.limitLabel(root.battery, strings))
+            tooltipText: root.battery.enabled ? strings.t("Turn off the limit until you enable it again") : strings.t("Enable charge protection")
             foreground: root.bar.foreground
             fontFamily: root.bar.fontFamily
             fontSize: Style.font.bodySmall
@@ -333,7 +342,7 @@ Panel {
             navigationOwner: root
             navigationIndex: 1
             width: (parent.width - parent.spacing * (parent.columns - 1)) / parent.columns
-            text: Model.fullChargeActive(root.battery) ? "Cancel full charge" : "Charge fully once"
+            text: Model.fullChargeActive(root.battery) ? strings.t("Cancel full charge") : strings.t("Charge fully once")
             foreground: root.bar.foreground
             fontFamily: root.bar.fontFamily
             fontSize: Style.font.bodySmall
@@ -341,32 +350,32 @@ Panel {
             active: Model.fullChargeActive(root.battery)
             enabled: root.statusValid && !root.busy && (!root.batteryPower || Model.fullChargeActive(root.battery))
             opacity: enabled ? 1 : 0.5
-            tooltipText: Model.fullChargeActive(root.battery) ? "Restore the charge limit now" : (root.batteryPower ? "Connect the charger first" : "Restore protection after unplugging")
+            tooltipText: Model.fullChargeActive(root.battery) ? strings.t("Restore the charge limit now") : (root.batteryPower ? strings.t("Connect the charger first") : strings.t("Restore protection after unplugging"))
             onClicked: root.charge(Model.fullChargeAction(root.battery))
           }
         }
-        Text {
+        Text { textFormat: Text.PlainText;
           width: parent.width
-          text: root.busy ? "Applying charge setting…" : Model.explanation(root.battery, root.batteryPower)
+          text: root.busy ? strings.t("Applying charge setting…") : Model.explanation(root.battery, root.batteryPower, strings)
           color: root.bar.foreground
           opacity: 0.75
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.bodySmall
           wrapMode: Text.WordWrap
         }
-        Text {
+        Text { textFormat: Text.PlainText;
           width: parent.width
           visible: text !== ""
-          text: [root.errorText, root.stateError, root.actionError, root.battery.error, root.guardWarning, root.profileError, root.profileReadError].filter(function(x, i, a) { return x && a.indexOf(x) === i }).join("\n")
-          color: Color.accent
+          text: [root.errorText, root.stateError, root.actionError, root.battery.error, root.guardWarning, root.profileError, root.profileReadError].filter(function(x, i, a) { return x && a.indexOf(x) === i }).map(function(x) { return strings.t(x, x) }).join("\n")
+          color: Commons.Color.accent
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.bodySmall
           wrapMode: Text.Wrap
-          textFormat: Text.PlainText
+
         }
         Button {
           visible: root.actionError !== ""
-          text: "Dismiss error (D)"
+          text: strings.t("Dismiss error (D)")
           foreground: root.bar.foreground
           onClicked: root.actionError = ""
         }
@@ -378,25 +387,25 @@ Panel {
           Column {
             width: (parent.width - parent.spacing * (parent.columns - 1)) / parent.columns
             spacing: Style.space(8)
-            InfoPair { label: "Battery health"; value: Model.percent(root.battery.health) }
-            InfoPair { label: "Charge cycles"; value: root.battery.cycles >= 0 ? String(root.battery.cycles) : "—" }
-            InfoPair { label: "Capacity"; value: root.battery.full > 0 ? root.battery.full.toFixed(1) + " Wh" : "—" }
+            InfoPair { label: strings.t("Battery health"); value: Model.percent(root.battery.health, strings) }
+            InfoPair { label: strings.t("Charge cycles"); value: root.battery.cycles >= 0 ? strings.formatNumber(root.battery.cycles) : "—" }
+            InfoPair { label: strings.t("Capacity"); value: root.battery.full > 0 ? strings.formatNumber(root.battery.full, 1) + " Wh" : "—" }
           }
           Column {
             width: (parent.width - parent.spacing * (parent.columns - 1)) / parent.columns
             spacing: Style.space(8)
-            InfoPair { label: root.battery.state === 2 ? "Discharging" : (root.battery.state === 1 ? "Charging" : "Power flow"); value: root.battery.rate != null ? root.battery.rate.toFixed(1) + " W" : "—" }
+            InfoPair { label: root.battery.state === 2 ? strings.t("Discharging") : (root.battery.state === 1 ? strings.t("Charging") : strings.t("Power flow")); value: root.battery.rate != null ? strings.formatNumber(root.battery.rate, 1) + " W" : "—" }
             InfoPair {
-              label: root.battery.state === 2 ? "Time left" : "Time to full"
-              value: root.battery.state === 2 ? Model.duration(root.battery.timeToEmpty) : (root.battery.state === 1 && !root.battery.enabled ? Model.duration(root.battery.timeToFull) : "—")
+              label: root.battery.state === 2 ? strings.t("Time left") : strings.t("Time to full")
+              value: root.battery.state === 2 ? Model.duration(root.battery.timeToEmpty, strings) : (root.battery.state === 1 && !root.battery.enabled ? Model.duration(root.battery.timeToFull, strings) : "—")
             }
-            InfoPair { label: "Hardware cap"; value: root.battery.actualEnd != null ? Model.percent(root.battery.actualEnd) : "—" }
+            InfoPair { label: strings.t("Hardware cap"); value: root.battery.actualEnd != null ? Model.percent(root.battery.actualEnd, strings) : "—" }
           }
         }
-        Text {
+        Text { textFormat: Text.PlainText;
           width: parent.width
           text: root.battery.model || ""
-          textFormat: Text.PlainText
+
           visible: text !== ""
           color: root.bar.foreground
           opacity: 0.5
@@ -405,7 +414,7 @@ Panel {
           elide: Text.ElideRight
         }
         PanelSeparator { foreground: root.bar.foreground }
-        PanelSectionHeader { text: "POWER PROFILE · " + (root.batteryPower ? "ON BATTERY" : "PLUGGED IN"); foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
+        PanelSectionHeader { text: strings.t(root.batteryPower ? "POWER PROFILE · ON BATTERY" : "POWER PROFILE · PLUGGED IN"); foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
         Flow {
           width: parent.width
           spacing: Style.space(6)
@@ -418,7 +427,7 @@ Panel {
               navigationOwner: root
               navigationIndex: index + (root.battery.supported ? 2 : 0)
               width: parent.width < Style.space(380) ? parent.width : (parent.width - parent.spacing * Math.max(0, root.profiles.length - 1)) / Math.max(1, root.profiles.length)
-              text: String(modelData).charAt(0).toUpperCase() + String(modelData).slice(1)
+              text: strings.t(String(modelData), String(modelData))
               iconText: Model.profileIcon(modelData)
               fontSize: Style.font.bodySmall
               foreground: root.bar.foreground
@@ -430,9 +439,9 @@ Panel {
             }
           }
         }
-        Text {
+        Text { textFormat: Text.PlainText;
           width: parent.width
-          text: "Power profiles affect performance and energy use. Charge protection is independent."
+          text: strings.t("Power profiles affect performance and energy use. Charge protection is independent.")
           wrapMode: Text.WordWrap
           color: root.bar.foreground
           opacity: 0.55
@@ -462,8 +471,8 @@ Panel {
     property string value: ""
     width: parent.width
     spacing: Style.space(6)
-    Text { text: label; color: root.bar.foreground; opacity: 0.6; font.family: root.bar.fontFamily; font.pixelSize: Style.font.bodySmall }
+    Text { textFormat: Text.PlainText; text: label; color: root.bar.foreground; opacity: 0.6; font.family: root.bar.fontFamily; font.pixelSize: Style.font.bodySmall }
     Item { width: Math.max(0, parent.width - parent.children[0].implicitWidth - parent.children[2].implicitWidth - parent.spacing * 2); height: 1 }
-    Text { text: value; color: root.bar.foreground; font.family: root.bar.fontFamily; font.pixelSize: Style.font.bodySmall }
+    Text { textFormat: Text.PlainText; text: value; color: root.bar.foreground; font.family: root.bar.fontFamily; font.pixelSize: Style.font.bodySmall }
   }
 }
