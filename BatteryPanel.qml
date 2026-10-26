@@ -2,10 +2,12 @@ import QtQuick
 import QtQuick.Controls as Controls
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.UPower
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "Model.js" as Model
+import "Energy.js" as Energy
 
 Panel {
   id: root
@@ -35,6 +37,29 @@ Panel {
   readonly property bool busy: actionProc.running
   readonly property bool showPercentage: setting("showPercentage", true) === true
   property string helper: decodeURIComponent(Qt.resolvedUrl("battery.py").toString().replace(/^file:\/\//, ""))
+  property string energyHelper: decodeURIComponent(Qt.resolvedUrl("energy.py").toString().replace(/^file:\/\//, ""))
+  property var energyHistory: Energy.empty()
+  property var flowHistory: ({})
+  readonly property bool draining: statusValid && Model.draining(battery, batteryPower)
+  property real drainNotifiedAt: 0
+  // Warn once per episode, even with the panel closed; a charger that cannot keep up
+  // otherwise goes unnoticed until the battery is empty.
+  onDrainingChanged: {
+    if (!draining || Date.now() - drainNotifiedAt < 600000) return
+    drainNotifiedAt = Date.now()
+    var watts = battery.rate > 0 ? battery.rate : Math.abs(battery.flow || 0)
+    notifyProc.command = ["notify-send", "-u", "critical", "-a", "Battery Care", "-i", "battery-caution",
+      strings.t("Charger is not keeping up"),
+      strings.t("The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.").arg(strings.formatNumber(watts, 1))]
+    notifyProc.running = true
+  }
+  property string energyError: ""
+  readonly property var energy: Energy.usage(energyHistory)
+  readonly property real dischargeRate: {
+    var total = 0
+    batteries.forEach(function(b) { if (b.state === 2 && b.rate > 0) total += b.rate })
+    return batteryPower && statusValid ? total : 0
+  }
   readonly property real openPanelIndicatorWidth: showPercentage && !button.vertical ? button.glyphPaintedWidth : 0
   readonly property int controlCount: (battery.supported ? 2 : 0) + profiles.length
   readonly property var enabledControls: {
@@ -57,6 +82,17 @@ Panel {
       batteryProc.running = true
     }
     if (opened && !profilesProc.running) profilesProc.running = true
+    if (!energyProc.running) energyProc.running = true
+  }
+  function receiveEnergy(raw) {
+    try {
+      var data = JSON.parse(raw)
+      if (data.error) throw new Error(data.error)
+      energyHistory = Energy.record(energyHistory, data, dischargeRate > 0 ? dischargeRate : null)
+      energyError = ""
+    } catch (e) {
+      energyError = strings.t("Energy use is unavailable. %1").arg(String(e.message || e))
+    }
   }
   function receive(raw, fromAction) {
     try {
@@ -68,7 +104,10 @@ Panel {
         return
       }
       if (!Array.isArray(data.batteries) || typeof data.onBattery !== "boolean") throw new Error("Incomplete response")
-      batteries = data.batteries || []
+      // Charger changes start a new net-power measurement.
+      var tracked = Model.trackEnergy(data.onBattery === batteryPower ? flowHistory : ({}), data.batteries, Date.now())
+      flowHistory = tracked.history
+      batteries = data.batteries.map(function(b) { return Object.assign({}, b, {flow: tracked.flows[b.key] !== undefined ? tracked.flows[b.key] : null}) })
       batteryPower = data.onBattery
       stateError = data.stateError || ""
       guardWarning = data.guardWarning || ""
@@ -157,6 +196,17 @@ Panel {
       if (code !== 0 && !root.actionError) root.actionError = "The charge setting could not be changed."
       Qt.callLater(root.refresh)
     }
+  }
+  Process { id: notifyProc }
+  // Plugging in or unplugging updates the panel at once instead of at the next poll.
+  Connections {
+    target: UPower
+    function onOnBatteryChanged() { root.refresh() }
+  }
+  Process {
+    id: energyProc
+    command: ["/usr/bin/python3", root.energyHelper]
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: if (text.trim()) root.receiveEnergy(text) }
   }
   Process {
     id: profilesProc
@@ -366,7 +416,7 @@ Panel {
         Text { textFormat: Text.PlainText;
           width: parent.width
           visible: text !== ""
-          text: [root.errorText, root.stateError, root.actionError, root.battery.error, root.guardWarning, root.profileError, root.profileReadError].filter(function(x, i, a) { return x && a.indexOf(x) === i }).map(function(x) { return strings.t(x, x) }).join("\n")
+          text: [root.errorText, root.draining ? "The charger is connected, but the battery is discharging. The charger may be too weak, or the cable or port may not deliver enough power." : "", root.stateError, root.actionError, root.battery.error, root.guardWarning, root.profileError, root.profileReadError].filter(function(x, i, a) { return x && a.indexOf(x) === i }).map(function(x) { return strings.t(x, x) }).join("\n")
           color: Commons.Color.accent
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.bodySmall
@@ -394,10 +444,10 @@ Panel {
           Column {
             width: (parent.width - parent.spacing * (parent.columns - 1)) / parent.columns
             spacing: Style.space(8)
-            InfoPair { label: root.battery.state === 2 ? strings.t("Discharging") : (root.battery.state === 1 ? strings.t("Charging") : strings.t("Power flow")); value: root.battery.rate != null ? strings.formatNumber(root.battery.rate, 1) + " W" : "—" }
+            InfoPair { label: Model.flowLabel(root.battery, root.batteryPower, strings); value: Model.flowValue(root.battery, strings) }
             InfoPair {
-              label: root.battery.state === 2 ? strings.t("Time left") : strings.t("Time to full")
-              value: root.battery.state === 2 ? Model.duration(root.battery.timeToEmpty, strings) : (root.battery.state === 1 && !root.battery.enabled ? Model.duration(root.battery.timeToFull, strings) : "—")
+              label: root.battery.state === 2 ? strings.t("Time left") : Model.stopLabel(root.battery, strings)
+              value: Model.duration(root.battery.state === 2 ? root.battery.timeToEmpty : Model.timeToStop(root.battery), strings)
             }
             InfoPair { label: strings.t("Hardware cap"); value: root.battery.actualEnd != null ? Model.percent(root.battery.actualEnd, strings) : "—" }
           }
@@ -412,6 +462,48 @@ Panel {
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.caption
           elide: Text.ElideRight
+        }
+        PanelSeparator { foreground: root.bar.foreground }
+        PanelSectionHeader { text: strings.t("USING SIGNIFICANT ENERGY"); foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
+        Column {
+          id: energyList
+          width: parent.width
+          spacing: Style.space(6)
+          readonly property real maxImpact: root.energy.items.length ? root.energy.items[0].impact : 1
+          Repeater {
+            model: root.energy.items
+            EnergyRow {
+              required property var modelData
+              name: modelData.name
+              kind: modelData.kind === "app" ? "" : strings.t(modelData.kind === "system" ? "System service" : "Service")
+              fraction: modelData.impact / energyList.maxImpact
+              value: modelData.watts !== null && modelData.watts >= 0.05
+                ? strings.t("≈ %1 W").arg(strings.formatNumber(modelData.watts, 1))
+                : strings.formatNumber(Math.round(modelData.impact))
+            }
+          }
+          Text { textFormat: Text.PlainText;
+            width: parent.width
+            visible: text !== ""
+            text: root.energyError || (!root.energy.ready ? strings.t("Measuring energy use…")
+              : !root.energy.items.length ? strings.t("No apps are using significant energy.") : "")
+            color: root.energyError ? Commons.Color.accent : root.bar.foreground
+            opacity: root.energyError ? 1 : 0.75
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            wrapMode: Text.WordWrap
+          }
+          Text { textFormat: Text.PlainText;
+            width: parent.width
+            text: root.energy.watts
+              ? strings.t("Estimated from CPU and GPU time over the last 3 minutes. Watts are battery drain above the recent idle level.")
+              : strings.t("Impact is CPU and GPU time over the last 3 minutes; 100 is one fully busy core. Watt estimates appear after 5 minutes on battery.")
+            wrapMode: Text.WordWrap
+            color: root.bar.foreground
+            opacity: 0.55
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.caption
+          }
         }
         PanelSeparator { foreground: root.bar.foreground }
         PanelSectionHeader { text: strings.t(root.batteryPower ? "POWER PROFILE · ON BATTERY" : "POWER PROFILE · PLUGGED IN"); foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
@@ -464,6 +556,43 @@ Panel {
         }
       }
       }
+    }
+  }
+  component EnergyRow: Row {
+    property string name: ""
+    property string kind: ""
+    property real fraction: 0
+    property string value: ""
+    width: parent.width
+    spacing: Style.space(8)
+    Text { textFormat: Text.PlainText
+      width: Math.round(parent.width * 0.45)
+      text: kind ? name + " · " + kind : name
+      elide: Text.ElideRight
+      color: root.bar.foreground
+      font.family: root.bar.fontFamily
+      font.pixelSize: Style.font.bodySmall
+    }
+    Item {
+      width: Math.max(0, parent.width - parent.children[0].width - parent.children[2].width - parent.spacing * 2)
+      height: Style.space(6)
+      anchors.verticalCenter: parent.verticalCenter
+      Rectangle { anchors.fill: parent; radius: height / 2; color: root.bar.foreground; opacity: 0.15 }
+      Rectangle {
+        height: parent.height
+        width: Math.max(height, parent.width * Math.min(1, Math.max(0, fraction)))
+        radius: height / 2
+        color: root.bar.foreground
+        opacity: 0.8
+      }
+    }
+    Text { textFormat: Text.PlainText
+      width: Style.space(64)
+      horizontalAlignment: Text.AlignRight
+      text: value
+      color: root.bar.foreground
+      font.family: root.bar.fontFamily
+      font.pixelSize: Style.font.bodySmall
     }
   }
   component InfoPair: Row {

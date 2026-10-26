@@ -1,5 +1,13 @@
 # Release notes and future improvements
 
+## Added in 0.5.0
+
+- **Using significant energy:** per-app and per-service CPU/GPU impact over the last 3 minutes, grouped by systemd unit, with battery wattage estimates above the recent idle level. Unprivileged and memory-only.
+- **Charger too weak warning:** net battery power is measured from stored-energy changes when firmware reports 0 W; a plugged-in battery that is losing energy is flagged instead of shown as “Charging · 0 W”. Rate labels now say **Power use**, **Into battery**, or **Battery drain**.
+- **Desktop notification** when a connected charger cannot keep up, even with the panel closed (at most once per 10 minutes).
+- **Time to the charge limit** (for example, “Time to 80%”) from the measured charging rate, instead of hiding the estimate.
+- Plugging in or unplugging refreshes the panel immediately through UPower events.
+
 ## Added in 0.3.0
 
 - Compact Screen & lock settings view with a shared pair or separate battery/AC pairs, inherited defaults, presets/custom times, Apply/Cancel/Reload, Stay Awake status, and keyboard access.
@@ -49,8 +57,8 @@ The replacement adds reversible charge controls, persistent temporary-session re
 
 1. Event-driven restoration on AC removal, while keeping periodic retry and durable recovery. This would catch brief unplug/replug events between polls.
 2. Explicit “stop managing” UI with service cleanup; Omarchy currently does not run uninstall hooks.
-3. Optional full-charge completion notification and an estimated time to the configured cap, only where reliable telemetry exists.
-4. Short power-use history with clear sampling and retention controls.
+3. Optional full-charge completion notification.
+4. Short power-use history (for example, the last 24 hours on battery) with clear sampling and retention controls, built on the in-memory energy sampler.
 5. Custom charge presets only through a supported, authorized backend; avoid raw root-level sysfs scripts.
 6. Upstream the enabled-state indicator fix so the standard widget improves even for people who do not install Battery Care.
 

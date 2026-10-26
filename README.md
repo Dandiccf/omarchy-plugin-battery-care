@@ -8,6 +8,8 @@ A replacement for Omarchy’s Power widget: charge protection, a temporary full-
 - **Charge fully once:** lifts the limit for the current plugged-in session. Protection returns after unplugging, or at the next user login after a reboot. While active, the button becomes **Cancel full charge**, which restores protection immediately, even if you have just unplugged. The protection toggle can also restore the limit.
 - **Accurate status:** an available preset is never presented as enabled. Hardware limits are displayed separately; disagreements with UPower are flagged.
 - **Useful telemetry:** health, cycle count, full capacity, charge/discharge power, runtime, and battery model. The charge bar marks the real active cap.
+- **Using significant energy:** like the macOS battery menu, lists the apps and services with the highest recent CPU and GPU activity, grouped by the systemd scope each app runs in (browser helpers count toward the browser). After 5 minutes on battery, each entry also shows an estimated wattage. Unprivileged, nothing is stored; see [Energy use](#energy-use).
+- **Charger warnings:** if a connected charger cannot keep up (too weak, loose cable, wrong port), the panel says **Plugged in · battery draining** and a desktop notification appears, even with the panel closed.
 - **Power profiles:** retains Omarchy’s separately remembered plugged-in and battery profiles.
 - **Screen & lock:** shared or separate battery/plugged-in screensaver and lock timeouts, presets and custom minutes/seconds, Apply/Cancel, and a Stay Awake indicator. Existing settings are inherited until you apply a change.
 - **Multiple batteries:** independently selectable controls and recovery state; peripheral batteries are excluded. Unsupported batteries retain monitoring.
@@ -69,8 +71,16 @@ Once protection is selected, the guard keeps it enabled until you switch the lim
 - A plug icon means external power is connected; the charging icon appears only while charging. “Plugged in · charge paused” makes a connected charger visible while protection holds the battery between its start and stop thresholds.
 - At a current charge above the limit, protection stops further charging; it does not force battery discharge.
 - “Health” is reported full capacity divided by design capacity. A new battery may show slightly above 100%; this is normal measurement/manufacturing variation, not a charging percentage.
-- Runtime and power flow come from UPower and are estimates. Time to full is hidden when a charge limit is active because that estimate is not time to the limit.
+- **Power use** (on battery) is the whole laptop's consumption. **Into battery** (plugged in) is only the power going into the battery; total consumption on AC power is not readable without root.
+- If firmware reports 0 W, net battery power is measured from changes in stored energy over at least 30 seconds and shown with “≈”. Plugged in but losing more than 1 W shows **Plugged in · battery draining** and a warning: the charger, cable, or port is not delivering enough power.
+- Runtime and power flow come from UPower and are estimates. With a charge limit active, **Time to 80%** (or your limit) is computed from the current charging rate; charging slows near the limit, so treat it as a lower bound.
 - Power profile selection is independent of battery charge protection.
+
+## Energy use
+
+**Using significant energy** shows up to five apps or services whose CPU and GPU time over the last 3 minutes reaches an impact of at least 5. An impact of 100 means one CPU core or GPU engine is fully busy. `energy.py` reads per-unit `cpu.stat` counters from the systemd cgroup tree and DRM `fdinfo` GPU counters for your own processes. Names come from desktop entries. Launcher scopes such as `gtk-launch` are named after the program they run, and web apps after their desktop entry or host. Samples are kept in memory only: every 5 seconds while the panel is open and every 30 seconds while it is closed.
+
+Linux does not expose per-app power without root, so watts are estimates. After 5 minutes of uninterrupted battery readings, the drain above the lowest recent rate (an approximation of the display and idle baseline) is split by activity share. On AC power, or before the baseline is known, only impact is shown. GPU time is available on drivers that publish DRM fdinfo usage (`xe`, `i915`, `amdgpu`); other system users' GPU clients are not visible.
 
 ## Screen & lock
 
@@ -114,6 +124,7 @@ Release restores protection for managed protection/full-charge modes and preserv
 omarchy plugin validate .
 /usr/bin/python3 -m unittest discover -s tests -v
 node tests/test-model.js
+node tests/test-energy.js
 ./tests/run-qml.sh  # Requires the Wayland session; uses a simulated battery
 /usr/bin/python3 battery.py status
 ```

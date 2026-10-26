@@ -21,7 +21,7 @@ ShellRoot {
     property bool vertical: false
     property int iconSize: 18
   }
-  Care.BatteryPanel { id: panel; bar: mockBar; idleAutomationEnabled: false; helper: Qt.resolvedUrl("Care/tests/fake_backend.py").toString().replace("file://", "") }
+  Care.BatteryPanel { id: panel; bar: mockBar; idleAutomationEnabled: false; helper: Qt.resolvedUrl("Care/tests/fake_backend.py").toString().replace("file://", ""); energyHelper: Qt.resolvedUrl("Care/tests/fake_energy.py").toString().replace("file://", "") }
   Timer {
     property int phase: 0
     property int count: 0
@@ -52,6 +52,16 @@ ShellRoot {
           panel.cursorIndex = 1; panel.activateCursor(); phase++
         } else {
           check(panel.battery.enabled && panel.battery.mode === "protect", "Cancel command routing")
+          check(panel.energyHistory.samples.length >= 1 && panel.energyError === "", "energy sampler runs")
+          var unit = function(name, kind, cpu) { return {id: name, name: name, kind: kind, cpu: cpu, gpuNs: 0, gpuCycles: 0} }
+          panel.receiveEnergy(JSON.stringify({time: 1, gpuClock: null, units: [unit("Busy", "app", 0), unit("Daemon", "service", 0), unit("Quiet", "app", 0)]}))
+          check(!panel.energy.ready, "one energy sample is not a measurement")
+          panel.receiveEnergy(JSON.stringify({time: 11, gpuClock: null, units: [unit("Busy", "app", 8e6), unit("Daemon", "service", 1e6), unit("Quiet", "app", 1e4)]}))
+          check(panel.energy.ready && panel.energy.items.length === 2, "significant energy users listed")
+          check(panel.energy.items[0].name === "Busy" && Math.round(panel.energy.items[0].impact) === 80, "energy impact ordering")
+          check(panel.energy.items[0].watts === null, "no watt estimate without a battery baseline")
+          panel.receiveEnergy('{"error":"no cgroups"}')
+          check(panel.energyError.indexOf("no cgroups") >= 0 && panel.energy.ready, "energy errors keep the last reading")
           panel.receive('{"error":"status failed"}', false)
           check(!panel.statusValid && panel.enabledControls.length === 0, "stale controls must disable")
           panel.receive('{"error":"action failed"}', true)
