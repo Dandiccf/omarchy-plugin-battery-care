@@ -120,11 +120,14 @@
   "Estimated from CPU and GPU time over the last 3 minutes. Watts are battery drain above the recent idle level.": "Estimated from CPU and GPU time over the last 3 minutes. Watts are battery drain above the recent idle level.",
   "Impact is CPU and GPU time over the last 3 minutes; 100 is one fully busy core. Watt estimates appear after 5 minutes on battery.": "Impact is CPU and GPU time over the last 3 minutes; 100 is one fully busy core. Watt estimates appear after 5 minutes on battery.",
   "Plugged in · battery draining": "Plugged in · battery draining",
-  "Power use": "Power use",
   "Battery drain": "Battery drain",
   "Into battery": "Into battery",
   "The charger is connected, but the battery is discharging. The charger may be too weak, or the cable or port may not deliver enough power.": "The charger is connected, but the battery is discharging. The charger may be too weak, or the cable or port may not deliver enough power.",
   "Time to %1%": "Time to %1%",
   "Charger is not keeping up": "Charger is not keeping up",
-  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port."
+  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.",
+  "From charger": "From charger",
+  "Laptop power": "Laptop power",
+  "From battery": "From battery",
+  "Not connected": "Not connected"
 }

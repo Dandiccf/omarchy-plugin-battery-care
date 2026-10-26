@@ -73,7 +73,7 @@ function draining(b, onBattery) {
 }
 function flowLabel(b, onBattery, strings) {
   function t(key) { return strings ? strings.t(key) : key }
-  if (onBattery && b.state === 2) return t("Power use")
+  if (onBattery && b.state === 2) return t("From battery")
   if (draining(b, onBattery)) return t("Battery drain")
   if (b.state === 1) return t("Into battery")
   return t("Power flow")
@@ -99,6 +99,24 @@ function stopLabel(b, strings) {
   if (!limited) return strings ? strings.t("Time to full") : "Time to full"
   return (strings ? strings.t("Time to %1%") : "Time to %1%").replace("%1", b.end)
 }
+// Charger input: battery net power plus laptop use, over typical conversion losses.
+var CONVERSION = 0.92
+function netFlow(b) {
+  if (b.state === 1 && b.rate > 0) return b.rate
+  if (b.state === 2 && b.rate > 0) return -b.rate
+  return typeof b.flow === "number" && isFinite(b.flow) ? b.flow : 0
+}
+function watts(value, i18n) { return (i18n ? i18n.formatNumber(value, 1) : value.toFixed(1)) + " W" }
+// On battery, use is the measured discharge; on AC it is the learned estimate.
+function laptopValue(b, onBattery, estimate, i18n) {
+  if (onBattery) return b.state === 2 && b.rate > 0 ? watts(b.rate, i18n) : "—"
+  return typeof estimate === "number" && isFinite(estimate) ? "≈ " + watts(estimate, i18n) : "—"
+}
+function chargerValue(b, onBattery, estimate, strings) {
+  if (onBattery) return strings ? strings.t("Not connected") : "Not connected"
+  if (!(typeof estimate === "number" && isFinite(estimate))) return "—"
+  return "≈ " + watts(Math.max(0, (estimate + netFlow(b)) / CONVERSION), strings)
+}
 function batteryIcon(b, onBattery) {
   var icons = ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
   if (b.state === 1 && !onBattery) return "󰂄"
@@ -116,4 +134,4 @@ function parseProfiles(raw) {
   })
   return { profiles: profiles, activeProfile: active }
 }
-if (typeof module !== "undefined") module.exports = { timeToStop, stopLabel, trackEnergy, draining, flowLabel, flowValue, duration, percent, limitLabel, protectionAction, fullChargeActive, fullChargeAction, nextControl, holding, status, explanation, batteryIcon, profileIcon, parseProfiles }
+if (typeof module !== "undefined") module.exports = { netFlow, laptopValue, chargerValue, timeToStop, stopLabel, trackEnergy, draining, flowLabel, flowValue, duration, percent, limitLabel, protectionAction, fullChargeActive, fullChargeAction, nextControl, holding, status, explanation, batteryIcon, profileIcon, parseProfiles }

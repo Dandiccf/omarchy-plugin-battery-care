@@ -120,11 +120,14 @@
   "Estimated from CPU and GPU time over the last 3 minutes. Watts are battery drain above the recent idle level.": "पिछले 3 मिनट के CPU और GPU समय से अनुमानित। वाट हाल के निष्क्रिय स्तर से ऊपर बैटरी की खपत है।",
   "Impact is CPU and GPU time over the last 3 minutes; 100 is one fully busy core. Watt estimates appear after 5 minutes on battery.": "प्रभाव पिछले 3 मिनट का CPU और GPU समय है; 100 का अर्थ एक पूरी तरह व्यस्त कोर है। वाट के अनुमान बैटरी पर 5 मिनट बाद दिखते हैं।",
   "Plugged in · battery draining": "प्लग इन · बैटरी डिस्चार्ज हो रही है",
-  "Power use": "बिजली उपयोग",
   "Battery drain": "बैटरी डिस्चार्ज",
   "Into battery": "बैटरी में",
   "The charger is connected, but the battery is discharging. The charger may be too weak, or the cable or port may not deliver enough power.": "चार्जर जुड़ा है, लेकिन बैटरी डिस्चार्ज हो रही है। चार्जर बहुत कमज़ोर हो सकता है, या केबल या पोर्ट पर्याप्त बिजली नहीं दे रहा है।",
   "Time to %1%": "%1% तक का समय",
   "Charger is not keeping up": "चार्जर पर्याप्त नहीं है",
-  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "चार्जर जुड़ा है, लेकिन बैटरी लगभग %1 W से डिस्चार्ज हो रही है। चार्जर, केबल और पोर्ट जाँचें।"
+  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "चार्जर जुड़ा है, लेकिन बैटरी लगभग %1 W से डिस्चार्ज हो रही है। चार्जर, केबल और पोर्ट जाँचें।",
+  "From charger": "चार्जर से",
+  "Laptop power": "लैपटॉप बिजली उपयोग",
+  "From battery": "बैटरी से",
+  "Not connected": "कनेक्ट नहीं"
 }

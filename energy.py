@@ -3,8 +3,10 @@
 
 Prints cumulative counters grouped by systemd unit (apps launched by the desktop
 have their own scope). The panel turns successive samples into energy impact.
-Nothing is written to disk and no privileges are needed.
+No privileges are needed. The only file written is the small laptop power model
+the panel learns on battery (--save-model), kept in the private state directory.
 """
+import argparse
 import configparser
 import json
 import os
@@ -12,6 +14,8 @@ from pathlib import Path
 import re
 import sys
 import time
+
+import battery
 
 CGROUP = Path(os.environ.get('BATTERY_CARE_CGROUP_ROOT', '/sys/fs/cgroup'))
 PROC = Path(os.environ.get('BATTERY_CARE_PROC_ROOT', '/proc'))
@@ -21,6 +25,8 @@ HELPERS = {'chrome_crashpad_handler', 'chrome_crashpad', 'kitten', 'socat', 'sle
 DESKTOPS = {'hyprland', 'gnome', 'kde', 'niri', 'sway', 'river'}
 SERVICE_NAMES = {'init.scope': 'systemd'}
 MAX_PROCS = 32
+MODEL = 'power-model.json'
+MODEL_KEYS = ('w', 'a', 'p', 'aa', 'ap')
 
 
 def read_text(path, limit=65536):
@@ -250,9 +256,45 @@ def sample(index=None):
     return {'time': time.monotonic(), 'gpuClock': clock, 'units': found}
 
 
-def main():
+def valid_model(model):
+    if not isinstance(model, dict) or set(model) != set(MODEL_KEYS):
+        return None
+    for key in MODEL_KEYS:
+        value = model[key]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value < 1e9:
+            return None
+    return {key: float(model[key]) for key in MODEL_KEYS}
+
+
+def load_model():
+    """The stored model, or None if absent or invalid; never blocks a sample."""
     try:
-        print(json.dumps(sample(), allow_nan=False))
+        with battery.safe_directory(battery.STATE, create=False) as directory_fd:
+            raw = battery.read_owned(directory_fd, MODEL)
+        return valid_model(json.loads(raw)) if raw else None
+    except (OSError, ValueError, RuntimeError):
+        return None
+
+
+def save_model(raw):
+    model = valid_model(json.loads(raw))
+    if model is None:
+        raise ValueError('Invalid power model')
+    with battery.safe_directory(battery.STATE, private=True) as directory_fd:
+        battery.publish_file(directory_fd, MODEL, json.dumps(model) + '\n', replace=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--save-model', metavar='JSON')
+    args = parser.parse_args()
+    try:
+        if args.save_model is not None:
+            save_model(args.save_model)
+            return 0
+        result = sample()
+        result['model'] = load_model()
+        print(json.dumps(result, allow_nan=False))
     except Exception as error:
         print(json.dumps({'error': str(error)}))
         return 1

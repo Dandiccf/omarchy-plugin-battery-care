@@ -120,11 +120,14 @@
   "Estimated from CPU and GPU time over the last 3 minutes. Watts are battery drain above the recent idle level.": "Geschätzt aus CPU- und GPU-Zeit der letzten 3 Minuten. Watt sind die Akkuentladung über dem jüngsten Leerlaufniveau.",
   "Impact is CPU and GPU time over the last 3 minutes; 100 is one fully busy core. Watt estimates appear after 5 minutes on battery.": "Die Auswirkung ist CPU- und GPU-Zeit der letzten 3 Minuten; 100 entspricht einem voll ausgelasteten Kern. Watt-Schätzungen erscheinen nach 5 Minuten im Akkubetrieb.",
   "Plugged in · battery draining": "Netzbetrieb · Akku entlädt sich",
-  "Power use": "Verbrauch",
   "Battery drain": "Akkuentladung",
   "Into battery": "In den Akku",
   "The charger is connected, but the battery is discharging. The charger may be too weak, or the cable or port may not deliver enough power.": "Das Netzteil ist angeschlossen, aber der Akku entlädt sich. Das Netzteil ist möglicherweise zu schwach, oder Kabel bzw. Anschluss liefern nicht genug Leistung.",
   "Time to %1%": "Zeit bis %1%",
   "Charger is not keeping up": "Netzteil reicht nicht aus",
-  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "Das Netzteil ist angeschlossen, aber der Akku entlädt sich mit etwa %1 W. Prüfen Sie Netzteil, Kabel und Anschluss."
+  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "Das Netzteil ist angeschlossen, aber der Akku entlädt sich mit etwa %1 W. Prüfen Sie Netzteil, Kabel und Anschluss.",
+  "From charger": "Vom Ladegerät",
+  "Laptop power": "Laptop-Verbrauch",
+  "From battery": "Aus dem Akku",
+  "Not connected": "Nicht angeschlossen"
 }

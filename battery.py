@@ -383,7 +383,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['status', 'protect', 'full', 'off', 'reconcile', 'release'])
     parser.add_argument('--battery', default='')
+    # Sent by the panel on UPower's unplug event: the charger may already be back
+    # by the time this runs, but the session ended and must not survive.
+    parser.add_argument('--unplugged', action='store_true')
     args = parser.parse_args()
+    if args.unplugged and args.action != 'reconcile':
+        parser.error('--unplugged is only valid with reconcile')
     try:
         api = UPower(interactive=args.action in ('protect', 'full', 'off', 'release'))
         with locked():
@@ -397,7 +402,7 @@ def main():
                 print(json.dumps(data, allow_nan=False))
                 return 0
             if args.action == 'reconcile':
-                reconcile(api, state, api.devices(), boot_id(), api.on_battery())
+                reconcile(api, state, api.devices(), boot_id(), args.unplugged or api.on_battery())
                 return 0
             elif args.action in ('protect', 'full', 'off'):
                 devices = api.devices()

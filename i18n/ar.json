@@ -120,11 +120,14 @@
   "Estimated from CPU and GPU time over the last 3 minutes. Watts are battery drain above the recent idle level.": "تقدير مبني على وقت المعالج ووحدة الرسوميات خلال آخر 3 دقائق. الواط هو استنزاف البطارية فوق مستوى الخمول الأخير.",
   "Impact is CPU and GPU time over the last 3 minutes; 100 is one fully busy core. Watt estimates appear after 5 minutes on battery.": "التأثير هو وقت المعالج ووحدة الرسوميات خلال آخر 3 دقائق؛ 100 تعني نواة واحدة مشغولة بالكامل. تظهر تقديرات الواط بعد 5 دقائق على البطارية.",
   "Plugged in · battery draining": "موصول بالكهرباء · البطارية تُفرَّغ",
-  "Power use": "الاستهلاك",
   "Battery drain": "تفريغ البطارية",
   "Into battery": "إلى البطارية",
   "The charger is connected, but the battery is discharging. The charger may be too weak, or the cable or port may not deliver enough power.": "الشاحن موصول، لكن البطارية تُفرَّغ. قد يكون الشاحن ضعيفًا جدًا، أو قد لا يوفّر الكابل أو المنفذ طاقة كافية.",
   "Time to %1%": "الوقت حتى %1%",
   "Charger is not keeping up": "الشاحن غير كافٍ",
-  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "الشاحن موصول، لكن البطارية تُفرَّغ بنحو %1 واط. تحقّق من الشاحن والكابل والمنفذ."
+  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "الشاحن موصول، لكن البطارية تُفرَّغ بنحو %1 واط. تحقّق من الشاحن والكابل والمنفذ.",
+  "From charger": "من الشاحن",
+  "Laptop power": "استهلاك الحاسوب",
+  "From battery": "من البطارية",
+  "Not connected": "غير موصول"
 }

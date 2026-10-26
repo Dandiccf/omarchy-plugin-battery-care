@@ -55,6 +55,8 @@ Panel {
   }
   property string energyError: ""
   readonly property var energy: Energy.usage(energyHistory)
+  readonly property var laptopEstimate: batteryPower ? null : Energy.laptopPower(energyHistory)
+  property real modelSavedAt: 0
   readonly property real dischargeRate: {
     var total = 0
     batteries.forEach(function(b) { if (b.state === 2 && b.rate > 0) total += b.rate })
@@ -90,6 +92,12 @@ Panel {
       if (data.error) throw new Error(data.error)
       energyHistory = Energy.record(energyHistory, data, dischargeRate > 0 ? dischargeRate : null)
       energyError = ""
+      // Persist what was learned on battery at most every 5 minutes.
+      if (energyHistory.learned && !modelProc.running && Date.now() - modelSavedAt > 300000) {
+        modelSavedAt = Date.now()
+        modelProc.command = ["/usr/bin/python3", energyHelper, "--save-model", JSON.stringify(energyHistory.model)]
+        modelProc.running = true
+      }
     } catch (e) {
       energyError = strings.t("Energy use is unavailable. %1").arg(String(e.message || e))
     }
@@ -198,10 +206,21 @@ Panel {
     }
   }
   Process { id: notifyProc }
+  Process { id: modelProc }
   // Plugging in or unplugging updates the panel at once instead of at the next poll.
+  // Unplugging also ends a temporary full charge immediately; the 15-second guard
+  // timer stays as the fallback and would miss a quick unplug and replug.
   Connections {
     target: UPower
-    function onOnBatteryChanged() { root.refresh() }
+    function onOnBatteryChanged() {
+      if (UPower.onBattery && !reconcileProc.running) reconcileProc.running = true
+      else root.refresh()
+    }
+  }
+  Process {
+    id: reconcileProc
+    command: ["/usr/bin/python3", root.helper, "reconcile", "--unplugged"]
+    onExited: Qt.callLater(root.refresh)
   }
   Process {
     id: energyProc
@@ -440,28 +459,19 @@ Panel {
             InfoPair { label: strings.t("Battery health"); value: Model.percent(root.battery.health, strings) }
             InfoPair { label: strings.t("Charge cycles"); value: root.battery.cycles >= 0 ? strings.formatNumber(root.battery.cycles) : "—" }
             InfoPair { label: strings.t("Capacity"); value: root.battery.full > 0 ? strings.formatNumber(root.battery.full, 1) + " Wh" : "—" }
+            InfoPair { label: strings.t("Hardware cap"); value: root.battery.actualEnd != null ? Model.percent(root.battery.actualEnd, strings) : "—" }
           }
           Column {
             width: (parent.width - parent.spacing * (parent.columns - 1)) / parent.columns
             spacing: Style.space(8)
+            InfoPair { label: strings.t("From charger"); value: Model.chargerValue(root.battery, root.batteryPower, root.laptopEstimate, strings) }
+            InfoPair { label: strings.t("Laptop power"); value: Model.laptopValue(root.battery, root.batteryPower, root.laptopEstimate, strings) }
             InfoPair { label: Model.flowLabel(root.battery, root.batteryPower, strings); value: Model.flowValue(root.battery, strings) }
             InfoPair {
               label: root.battery.state === 2 ? strings.t("Time left") : Model.stopLabel(root.battery, strings)
               value: Model.duration(root.battery.state === 2 ? root.battery.timeToEmpty : Model.timeToStop(root.battery), strings)
             }
-            InfoPair { label: strings.t("Hardware cap"); value: root.battery.actualEnd != null ? Model.percent(root.battery.actualEnd, strings) : "—" }
           }
-        }
-        Text { textFormat: Text.PlainText;
-          width: parent.width
-          text: root.battery.model || ""
-
-          visible: text !== ""
-          color: root.bar.foreground
-          opacity: 0.5
-          font.family: root.bar.fontFamily
-          font.pixelSize: Style.font.caption
-          elide: Text.ElideRight
         }
         PanelSeparator { foreground: root.bar.foreground }
         PanelSectionHeader { text: strings.t("USING SIGNIFICANT ENERGY"); foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }

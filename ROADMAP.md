@@ -1,5 +1,10 @@
 # Release notes and future improvements
 
+## Added in 0.5.1
+
+- **Immediate restoration on unplug:** the panel runs recovery on UPower’s unplug event, so a quick unplug and replug between timer checks still ends a temporary full charge. The 15-second timer remains the fallback.
+- **From charger** and **Laptop power** rows: estimated on AC power from a laptop power model learned on battery (power versus CPU/GPU activity), measured exactly on battery. The battery part number was removed from the panel. The two telemetry columns now have four rows each.
+
 ## Added in 0.5.0
 
 - **Using significant energy:** per-app and per-service CPU/GPU impact over the last 3 minutes, grouped by systemd unit, with battery wattage estimates above the recent idle level. Unprivileged and memory-only.
@@ -55,11 +60,10 @@ The replacement adds reversible charge controls, persistent temporary-session re
 
 ## Useful next features
 
-1. Event-driven restoration on AC removal, while keeping periodic retry and durable recovery. This would catch brief unplug/replug events between polls.
-2. Explicit “stop managing” UI with service cleanup; Omarchy currently does not run uninstall hooks.
-3. Optional full-charge completion notification.
-4. Short power-use history (for example, the last 24 hours on battery) with clear sampling and retention controls, built on the in-memory energy sampler.
-5. Custom charge presets only through a supported, authorized backend; avoid raw root-level sysfs scripts.
-6. Upstream the enabled-state indicator fix so the standard widget improves even for people who do not install Battery Care.
+1. Explicit “stop managing” UI with service cleanup; Omarchy currently does not run uninstall hooks.
+2. Optional full-charge completion notification.
+3. Short power-use history (for example, the last 24 hours on battery) with clear sampling and retention controls, built on the in-memory energy sampler.
+4. Custom charge presets only through a supported, authorized backend; avoid raw root-level sysfs scripts.
+5. Upstream the enabled-state indicator fix so the standard widget improves even for people who do not install Battery Care.
 
 No performance-profile changes should silently alter charge protection. No preset should be labeled active without checking its actual enabled state. Battery diagnostics should distinguish estimates from hardware settings.

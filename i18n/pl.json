@@ -120,11 +120,14 @@
   "Estimated from CPU and GPU time over the last 3 minutes. Watts are battery drain above the recent idle level.": "Szacowane na podstawie czasu CPU i GPU z ostatnich 3 minut. Waty to rozładowanie powyżej niedawnego poziomu bezczynności.",
   "Impact is CPU and GPU time over the last 3 minutes; 100 is one fully busy core. Watt estimates appear after 5 minutes on battery.": "Wpływ to czas CPU i GPU z ostatnich 3 minut; 100 oznacza jeden w pełni zajęty rdzeń. Szacunki w watach pojawiają się po 5 minutach pracy na baterii.",
   "Plugged in · battery draining": "Podłączono · bateria się rozładowuje",
-  "Power use": "Zużycie",
   "Battery drain": "Rozładowanie baterii",
   "Into battery": "Do baterii",
   "The charger is connected, but the battery is discharging. The charger may be too weak, or the cable or port may not deliver enough power.": "Ładowarka jest podłączona, ale bateria się rozładowuje. Ładowarka może być za słaba albo kabel lub port nie dostarczają wystarczającej mocy.",
   "Time to %1%": "Czas do %1%",
   "Charger is not keeping up": "Ładowarka nie nadąża",
-  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "Ładowarka jest podłączona, ale bateria rozładowuje się z mocą około %1 W. Sprawdź ładowarkę, kabel i port."
+  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "Ładowarka jest podłączona, ale bateria rozładowuje się z mocą około %1 W. Sprawdź ładowarkę, kabel i port.",
+  "From charger": "Z ładowarki",
+  "Laptop power": "Zużycie laptopa",
+  "From battery": "Z baterii",
+  "Not connected": "Niepodłączona"
 }

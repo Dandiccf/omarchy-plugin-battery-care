@@ -120,11 +120,14 @@
   "Estimated from CPU and GPU time over the last 3 minutes. Watts are battery drain above the recent idle level.": "過去3分間のCPUとGPUの使用時間から推定しています。ワット数は最近のアイドル時を上回るバッテリー消費です。",
   "Impact is CPU and GPU time over the last 3 minutes; 100 is one fully busy core. Watt estimates appear after 5 minutes on battery.": "影響度は過去3分間のCPUとGPUの使用時間です。100はコア1つがフル稼働の状態です。ワット数の推定はバッテリー駆動5分後に表示されます。",
   "Plugged in · battery draining": "電源接続中・バッテリー放電中",
-  "Power use": "消費電力",
   "Battery drain": "バッテリー放電",
   "Into battery": "バッテリーへ",
   "The charger is connected, but the battery is discharging. The charger may be too weak, or the cable or port may not deliver enough power.": "充電器は接続されていますが、バッテリーが放電しています。充電器の出力が不足しているか、ケーブルやポートが十分な電力を供給していない可能性があります。",
   "Time to %1%": "%1%までの時間",
   "Charger is not keeping up": "充電器の出力が不足しています",
-  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "充電器は接続されていますが、バッテリーが約%1 Wで放電しています。充電器、ケーブル、ポートを確認してください。"
+  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "充電器は接続されていますが、バッテリーが約%1 Wで放電しています。充電器、ケーブル、ポートを確認してください。",
+  "From charger": "充電器から",
+  "Laptop power": "ノートPCの消費電力",
+  "From battery": "バッテリーから",
+  "Not connected": "未接続"
 }

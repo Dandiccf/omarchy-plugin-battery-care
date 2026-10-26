@@ -65,7 +65,7 @@ console.log('7 plugged-in presentation regression assertions passed')
   assert.equal(m.flowValue(drained), '≈ 9.0 W')
   assert.equal(m.flowLabel({ ...bat, rate: 37.2 }, false), 'Into battery')
   assert.equal(m.flowValue({ ...bat, rate: 37.2, flow: 36 }), '37.2 W', 'firmware rate wins')
-  assert.equal(m.flowLabel({ ...bat, state: 2, rate: 12 }, true), 'Power use')
+  assert.equal(m.flowLabel({ ...bat, state: 2, rate: 12 }, true), 'From battery')
   assert.equal(m.flowValue({ ...bat, flow: 0.2 }), '0.0 W')
   assert.equal(m.flowValue({ key: 'x', rate: null }), '—')
   // Old readings expire, and the newest reading at least 30 s old is the base.
@@ -87,4 +87,20 @@ console.log('7 plugged-in presentation regression assertions passed')
   assert.equal(m.stopLabel({ ...c, enabled: false }), 'Time to full')
   assert.equal(m.timeToStop({ ...c, state: 2 }), 0)
   console.log('time-to-limit assertions passed')
+}
+{
+  // Charger input and laptop use: measured on battery, estimated on AC.
+  const c = { key: 'BAT0', state: 1, rate: 38.3, flow: null }
+  assert.equal(m.laptopValue(c, false, null), '—', 'unknown until learned')
+  assert.equal(m.chargerValue(c, false, null), '—')
+  assert.equal(m.laptopValue(c, false, 9), '≈ 9.0 W')
+  assert.equal(m.chargerValue(c, false, 9), '≈ ' + ((38.3 + 9) / 0.92).toFixed(1) + ' W')
+  assert.equal(m.chargerValue({ key: 'BAT0', state: 5, rate: 0 }, false, 9), '≈ 9.8 W', 'charge paused at the limit')
+  assert.equal(m.chargerValue({ key: 'BAT0', state: 1, rate: 0, flow: -9 }, false, 12), '≈ 3.3 W', 'weak charger')
+  assert.equal(m.chargerValue({ key: 'BAT0', state: 1, rate: 0, flow: -20 }, false, 12), '≈ 0.0 W', 'never negative')
+  const d = { key: 'BAT0', state: 2, rate: 9.9 }
+  assert.equal(m.laptopValue(d, true, 50), '9.9 W', 'measured on battery, not estimated')
+  assert.equal(m.chargerValue(d, true, 50), 'Not connected')
+  assert.equal(m.flowLabel(d, true), 'From battery')
+  console.log('charger and laptop power assertions passed')
 }

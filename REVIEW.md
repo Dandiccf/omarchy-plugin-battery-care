@@ -37,7 +37,7 @@ The button QML harness exercises hover signals and bindings; it is not a substit
 
 ## Remaining limitations and release checks
 
-1. **Recovery polls every 15 seconds.** A brief unplug/replug entirely between checks may be missed. Cancel full charge or unplug for at least one interval; event-driven AC handling remains a future improvement.
+1. **Recovery polls every 15 seconds as a fallback.** Since 0.5.1 the panel also restores protection on UPower’s unplug event. Only with the widget disabled or the shell stopped can a brief unplug/replug between checks be missed.
 2. **Recovery is a user-session service.** After reboot it resumes at login, not before login or in firmware. A physical reboot during an active full-charge session remains untested; automated boot-ID recovery passes. The completed physical reboot started in protection mode.
 3. **Hardware coverage is one ThinkPad.** Multiple-battery, unsupported-device, and several failure cases are simulated. Other UPower versions, firmware limits, and laptops need live testing before a broad compatibility claim.
 4. **Limits come from UPower.** The plugin does not offer arbitrary custom percentages or forcibly drain a battery that is already above the limit. Other charge managers can still change the same hardware; disagreements are reported.

@@ -120,11 +120,14 @@
   "Estimated from CPU and GPU time over the last 3 minutes. Watts are battery drain above the recent idle level.": "Оценка по времени CPU и GPU за последние 3 минуты. Ватты — разряд сверх недавнего уровня простоя.",
   "Impact is CPU and GPU time over the last 3 minutes; 100 is one fully busy core. Watt estimates appear after 5 minutes on battery.": "Влияние — время CPU и GPU за последние 3 минуты; 100 — одно полностью загруженное ядро. Оценки в ваттах появляются через 5 минут работы от батареи.",
   "Plugged in · battery draining": "Подключено · батарея разряжается",
-  "Power use": "Потребление",
   "Battery drain": "Разряд батареи",
   "Into battery": "В батарею",
   "The charger is connected, but the battery is discharging. The charger may be too weak, or the cable or port may not deliver enough power.": "Зарядное устройство подключено, но батарея разряжается. Возможно, зарядное устройство слишком слабое либо кабель или порт не обеспечивают достаточную мощность.",
   "Time to %1%": "Время до %1%",
   "Charger is not keeping up": "Зарядное устройство не справляется",
-  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "Зарядное устройство подключено, но батарея разряжается примерно на %1 Вт. Проверьте зарядное устройство, кабель и порт."
+  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "Зарядное устройство подключено, но батарея разряжается примерно на %1 Вт. Проверьте зарядное устройство, кабель и порт.",
+  "From charger": "От зарядного устройства",
+  "Laptop power": "Потребление ноутбука",
+  "From battery": "Из батареи",
+  "Not connected": "Не подключено"
 }

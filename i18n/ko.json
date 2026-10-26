@@ -120,11 +120,14 @@
   "Estimated from CPU and GPU time over the last 3 minutes. Watts are battery drain above the recent idle level.": "최근 3분간의 CPU 및 GPU 사용 시간으로 추정합니다. 와트는 최근 유휴 수준을 넘는 배터리 소모량입니다.",
   "Impact is CPU and GPU time over the last 3 minutes; 100 is one fully busy core. Watt estimates appear after 5 minutes on battery.": "영향은 최근 3분간의 CPU 및 GPU 사용 시간이며 100은 코어 하나가 완전히 사용된 상태입니다. 와트 추정치는 배터리 사용 5분 후에 표시됩니다.",
   "Plugged in · battery draining": "전원 연결됨 · 배터리 방전 중",
-  "Power use": "소비 전력",
   "Battery drain": "배터리 방전",
   "Into battery": "배터리로",
   "The charger is connected, but the battery is discharging. The charger may be too weak, or the cable or port may not deliver enough power.": "충전기가 연결되어 있지만 배터리가 방전되고 있습니다. 충전기 출력이 부족하거나 케이블 또는 포트가 충분한 전력을 공급하지 못할 수 있습니다.",
   "Time to %1%": "%1%까지 남은 시간",
   "Charger is not keeping up": "충전기 출력이 부족합니다",
-  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "충전기가 연결되어 있지만 배터리가 약 %1 W로 방전되고 있습니다. 충전기, 케이블, 포트를 확인하세요."
+  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "충전기가 연결되어 있지만 배터리가 약 %1 W로 방전되고 있습니다. 충전기, 케이블, 포트를 확인하세요.",
+  "From charger": "충전기에서",
+  "Laptop power": "노트북 소비 전력",
+  "From battery": "배터리에서",
+  "Not connected": "연결되지 않음"
 }

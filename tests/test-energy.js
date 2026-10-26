@@ -56,3 +56,39 @@ h = e.record(e.empty(), sample(0, []), null)
 h = e.record(h, sample(10, 'abcdefg'.split('').map(n => unit(n, n.toUpperCase(), 1e6))), null)
 assert.deepEqual(e.usage(h).items.map(i => i.name), ['A', 'B', 'C', 'D', 'E'])
 console.log('energy model tests passed')
+{
+  // Laptop power model: learned on battery only, then predicted from activity.
+  const s = (time, cpu) => ({ time, gpuClock: null, units: [{ id: 'a', name: 'A', kind: 'app', cpu, gpuNs: 0, gpuCycles: 0 }] })
+  let h = e.empty(), cpu = 0
+  // 12 minutes at 30 s: alternating 0.2 and 1.2 busy cores at 6 W and 16 W (base 4 W, 10 W per core).
+  for (let t = 0; t <= 720; t += 30) {
+    const load = (t / 30) % 2 ? 1.2 : 0.2
+    if (t) cpu += load * 30e6
+    h = e.record(h, s(t, cpu), 4 + 10 * load)
+  }
+  const fitted = e.fit(h.model)
+  assert.ok(Math.abs(fitted.base - 4) < 0.05 && Math.abs(fitted.perCore - 10) < 0.05, JSON.stringify(fitted))
+  assert.equal(e.laptopPower({ ...h, model: null }), null)
+  // On AC: no learning, prediction from the recent window (0.5 cores -> 9 W).
+  let ac = { ...h, samples: [], power: [] }
+  ac = e.record(ac, s(800, 0), null)
+  assert.equal(ac.learned, false)
+  ac = e.record(ac, s(830, 15e6), null)
+  assert.ok(Math.abs(e.laptopPower(ac) - 9) < 0.1, String(e.laptopPower(ac)))
+  // Too little data, an AC gap, or a long gap is not learned.
+  let short = e.record(e.empty(), s(0, 0), 10)
+  short = e.record(short, s(30, 3e6), 10)
+  assert.equal(short.learned, true)
+  assert.equal(e.fit(short.model), null, 'needs ten minutes on battery')
+  const gap = e.record(short, s(400, 5e6), 10)
+  assert.equal(gap.learned, false)
+  // A stored model is adopted on startup and invalid ones are ignored.
+  const stored = e.record(e.empty(), { ...s(0, 0), model: h.model }, null)
+  assert.deepEqual(stored.model, h.model)
+  assert.equal(e.record(e.empty(), { ...s(0, 0), model: { w: -1, a: 0, p: 0, aa: 0, ap: 0 } }, null).model, null)
+  // Flat load falls back to the mean power.
+  let flat = e.empty()
+  for (let t = 0, c = 0; t <= 720; t += 30, c += 15e6) flat = e.record(flat, s(t, c), 8)
+  assert.deepEqual(e.fit(flat.model), { base: 8, perCore: 0 })
+  console.log('laptop power model tests passed')
+}

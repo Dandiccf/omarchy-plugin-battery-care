@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "dandiccf.battery-care",
   "name": "Battery Care",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": "dandiccf",
   "license": "MIT",
   "description": "Honest charge-limit status, battery health, per-app energy use, charger warnings, power profiles, and temporary full charging with automatic protection recovery.",

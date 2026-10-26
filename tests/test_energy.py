@@ -126,5 +126,39 @@ class EnergyTests(EnergyFixture):
         self.assertEqual(self.sample()['units'], [])
 
 
+class PowerModelTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        patcher = patch.object(e.battery, 'STATE', Path(self.temp.name) / 'state')
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_model_round_trip_is_private(self):
+        self.assertIsNone(e.load_model())
+        e.save_model('{"w": 25, "a": 10, "p": 200, "aa": 6, "ap": 90}')
+        self.assertEqual(e.load_model(), {'w': 25.0, 'a': 10.0, 'p': 200.0, 'aa': 6.0, 'ap': 90.0})
+        self.assertEqual(os.stat(e.battery.STATE / e.MODEL).st_mode & 0o777, 0o600)
+
+    def test_invalid_models_are_rejected(self):
+        for raw in ('[]', '{"w": 1}', '{"w": -1, "a": 0, "p": 0, "aa": 0, "ap": 0}',
+                    '{"w": true, "a": 0, "p": 0, "aa": 0, "ap": 0}', '{"w": 1, "a": 0, "p": 0, "aa": 0, "ap": 0, "x": 1}'):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                e.save_model(raw)
+        e.battery.STATE.mkdir(mode=0o700)
+        (e.battery.STATE / e.MODEL).write_text('not json')
+        self.assertIsNone(e.load_model(), 'a corrupt model never breaks sampling')
+
+    def test_symlinked_model_is_ignored_and_never_followed(self):
+        e.battery.STATE.mkdir(mode=0o700)
+        target = Path(self.temp.name) / 'elsewhere'
+        target.write_text('{"w": 25, "a": 10, "p": 200, "aa": 6, "ap": 90}')
+        (e.battery.STATE / e.MODEL).symlink_to(target)
+        self.assertIsNone(e.load_model())
+        with self.assertRaises(OSError):
+            e.save_model('{"w": 1, "a": 0, "p": 0, "aa": 0, "ap": 0}')
+        self.assertIn('"w": 25', target.read_text())
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -120,11 +120,14 @@
   "Estimated from CPU and GPU time over the last 3 minutes. Watts are battery drain above the recent idle level.": "Estimé à partir du temps CPU et GPU des 3 dernières minutes. Les watts correspondent à la décharge au-dessus du niveau de repos récent.",
   "Impact is CPU and GPU time over the last 3 minutes; 100 is one fully busy core. Watt estimates appear after 5 minutes on battery.": "L’impact correspond au temps CPU et GPU des 3 dernières minutes ; 100 équivaut à un cœur entièrement occupé. Les estimations en watts apparaissent après 5 minutes sur batterie.",
   "Plugged in · battery draining": "Branché · batterie en décharge",
-  "Power use": "Consommation",
   "Battery drain": "Décharge de la batterie",
   "Into battery": "Vers la batterie",
   "The charger is connected, but the battery is discharging. The charger may be too weak, or the cable or port may not deliver enough power.": "Le chargeur est branché, mais la batterie se décharge. Le chargeur est peut-être trop faible, ou le câble ou le port ne fournit pas assez de puissance.",
   "Time to %1%": "Temps jusqu’à %1%",
   "Charger is not keeping up": "Le chargeur ne suffit pas",
-  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "Le chargeur est branché, mais la batterie se décharge d’environ %1 W. Vérifiez le chargeur, le câble et le port."
+  "The charger is connected, but the battery is discharging at about %1 W. Check the charger, cable, and port.": "Le chargeur est branché, mais la batterie se décharge d’environ %1 W. Vérifiez le chargeur, le câble et le port.",
+  "From charger": "Du chargeur",
+  "Laptop power": "Consommation du portable",
+  "From battery": "De la batterie",
+  "Not connected": "Non branché"
 }
