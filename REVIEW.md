@@ -106,3 +106,10 @@ Added and reviewed 2026-10-26 on the ThinkPad X1 Gen 14 (Intel `xe` graphics).
 - Verified against sysfs while charging: the energy delta measured +33.6 W against firmware `power_now` of 34.5–35.9 W, and percentage, thresholds, health, cycles, and guard state matched. A charger showing 51 W output corresponds to about 36–39 W into the battery, plus system load and conversion losses. The panel labels this rate **Into battery**.
 - Tests: new Python sampler tests (`tests/test_energy.py`), Node tests for impact, watts, measured flow, drain detection, and time to the limit, plus a QML panel check of energy sampling and error handling.
 - Not yet observed live: the drain warning and notification firing (covered by tests using the −9 W readings from the incident), and watt estimates after 5 minutes on battery.
+
+## Battery history — 0.6.0
+
+- The panel aggregates its existing energy samples into 15-minute buckets in memory and flushes each finished bucket through `energy.py --add-history`. The helper strictly validates each bucket: exact keys, aligned start time within retention, bounded numbers, level 0–100, and up to five apps with known kinds and names of at most 128 characters. It merges partial buckets from a restart, prunes entries older than 10 days, and publishes atomically with the existing private-file checks. A corrupt history file reads as empty. Unsafe files (symlinks, foreign owners) are refused and never followed. Clearing removes only the verified regular file.
+- Sampling gaps longer than 2 minutes (suspend, stalled shell) are not counted, so charts show gaps instead of invented values. App activity is recorded only on battery.
+- Verified live with temporary demo data in both views (24 hours and 10 days), keyboard access (`U`, Tab, Enter), then cleared. `h` was rejected as a shortcut because Omarchy's panel reserves h/j/k/l for navigation.
+- Tests: Python history storage (validation, merge, retention, corruption, symlink refusal), Node aggregation and views (gaps, AC/battery split, flush on bucket change, slot and day mapping, shares, pending merge), and QML panel history loading and error handling.

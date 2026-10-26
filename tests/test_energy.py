@@ -1,4 +1,5 @@
 """Per-app energy counters from a simulated cgroup, /proc, and desktop-entry tree."""
+import json
 import os
 from pathlib import Path
 import sys
@@ -158,6 +159,73 @@ class PowerModelTests(unittest.TestCase):
         with self.assertRaises(OSError):
             e.save_model('{"w": 1, "a": 0, "p": 0, "aa": 0, "ap": 0}')
         self.assertIn('"w": 25', target.read_text())
+
+
+
+class HistoryTests(unittest.TestCase):
+    NOW = 1_800_000_000  # A multiple of 900, so bucket starts are exact.
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        patcher = patch.object(e.battery, 'STATE', Path(self.temp.name) / 'state')
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def bucket(self, start, **values):
+        b = {'start': start, 'seconds': 900, 'battery': 600, 'charged': 300, 'wh': 1.5, 'active': 300,
+             'level': 50, 'apps': [{'name': 'Chromium', 'kind': 'app', 'cores': 200}]}
+        b.update(values)
+        return b
+
+    def add(self, bucket, now=None):
+        return e.add_history(json.dumps(bucket), self.NOW if now is None else now)
+
+    def test_add_load_and_private_file(self):
+        self.assertEqual(e.load_history(self.NOW), [])
+        self.add(self.bucket(self.NOW - 900))
+        self.add(self.bucket(self.NOW - 1800, level=60))
+        stored = e.load_history(self.NOW)
+        self.assertEqual([b['start'] for b in stored], [self.NOW - 1800, self.NOW - 900])
+        self.assertEqual(os.stat(e.battery.STATE / e.HISTORY).st_mode & 0o777, 0o600)
+
+    def test_partial_buckets_from_a_restart_are_merged(self):
+        self.add(self.bucket(self.NOW, apps=[{'name': 'A', 'kind': 'app', 'cores': 5}]))
+        merged = self.add(self.bucket(self.NOW, level=None, apps=[{'name': 'A', 'kind': 'app', 'cores': 7},
+                                                                    {'name': 'B', 'kind': 'service', 'cores': 9}]))
+        self.assertEqual(len(merged), 1)
+        self.assertEqual((merged[0]['seconds'], merged[0]['wh'], merged[0]['level']), (1800, 3.0, 50))
+        self.assertEqual(merged[0]['apps'], [{'name': 'A', 'kind': 'app', 'cores': 12},
+                                             {'name': 'B', 'kind': 'service', 'cores': 9}])
+
+    def test_retention_prunes_after_ten_days(self):
+        self.add(self.bucket(self.NOW - 9 * 86400))
+        kept = self.add(self.bucket(self.NOW + 2 * 86400), now=self.NOW + 2 * 86400)
+        self.assertEqual([b['start'] for b in kept], [self.NOW + 2 * 86400])
+
+    def test_invalid_buckets_are_rejected(self):
+        bad = [self.bucket(self.NOW + 1), self.bucket(self.NOW - 20 * 86400), self.bucket(self.NOW, level=101),
+               self.bucket(self.NOW, wh=-1), self.bucket(self.NOW, seconds=True), self.bucket(self.NOW, extra=1),
+               self.bucket(self.NOW, apps=[{'name': '', 'kind': 'app', 'cores': 1}]),
+               self.bucket(self.NOW, apps=[{'name': 'x', 'kind': 'root', 'cores': 1}]),
+               self.bucket(self.NOW, apps=[{'name': str(i), 'kind': 'app', 'cores': 1} for i in range(6)])]
+        for bucket in bad:
+            with self.subTest(bucket=bucket), self.assertRaises(ValueError):
+                self.add(bucket)
+
+    def test_corrupt_history_reads_empty_and_clear_removes_only_our_file(self):
+        e.battery.STATE.mkdir(mode=0o700)
+        (e.battery.STATE / e.HISTORY).write_text('{"buckets": [{"start": "x"}]}')
+        self.assertEqual(e.load_history(self.NOW), [])
+        e.clear_history()
+        self.assertFalse((e.battery.STATE / e.HISTORY).exists())
+        e.clear_history()  # Idempotent.
+        target = Path(self.temp.name) / 'elsewhere'
+        target.write_text('keep')
+        (e.battery.STATE / e.HISTORY).symlink_to(target)
+        with self.assertRaises(OSError):
+            e.clear_history()
+        self.assertEqual(target.read_text(), 'keep')
 
 
 if __name__ == '__main__':

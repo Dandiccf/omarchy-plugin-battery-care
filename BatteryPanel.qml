@@ -57,6 +57,12 @@ Panel {
   readonly property var energy: Energy.usage(energyHistory)
   readonly property var laptopEstimate: batteryPower ? null : Energy.laptopPower(energyHistory)
   property real modelSavedAt: 0
+  readonly property bool historyRecording: setting("historyEnabled", true) === true
+  property var historyBuckets: []
+  property var historyPending: null
+  property var historyQueue: []
+  property string historyError: ""
+  readonly property int historyIndex: controlCount + 1
   readonly property real dischargeRate: {
     var total = 0
     batteries.forEach(function(b) { if (b.state === 2 && b.rate > 0) total += b.rate })
@@ -66,7 +72,7 @@ Panel {
   readonly property int controlCount: (battery.supported ? 2 : 0) + profiles.length
   readonly property var enabledControls: {
     var result = []
-    if (!statusValid) return idleController.enabled ? [controlCount] : result
+    if (!statusValid) return idleController.enabled ? [controlCount, historyIndex] : [historyIndex]
     if (battery.supported && !busy) {
       result.push(0)
       if (!batteryPower || Model.fullChargeActive(battery)) result.push(1)
@@ -75,6 +81,7 @@ Panel {
       for (var i = 0; i < profiles.length; ++i) result.push(i + (battery.supported ? 2 : 0))
     }
     if (idleController.enabled) result.push(controlCount)
+    result.push(historyIndex)
     return result
   }
 
@@ -90,7 +97,16 @@ Panel {
     try {
       var data = JSON.parse(raw)
       if (data.error) throw new Error(data.error)
+      var samples = energyHistory.samples
+      var previous = samples.length && samples[samples.length - 1].time < data.time ? samples[samples.length - 1] : null
       energyHistory = Energy.record(energyHistory, data, dischargeRate > 0 ? dischargeRate : null)
+      if (historyRecording) {
+        var step = Energy.accumulate(historyPending, previous, data, {
+          now: Date.now() / 1000, onBattery: statusValid && batteryPower, rate: dischargeRate,
+          level: statusValid ? battery.percentage : null })
+        historyPending = step.pending
+        if (step.flushed) runHistory(["--add-history", JSON.stringify(step.flushed)])
+      }
       energyError = ""
       // Persist what was learned on battery at most every 5 minutes.
       if (energyHistory.learned && !modelProc.running && Date.now() - modelSavedAt > 300000) {
@@ -134,6 +150,37 @@ Panel {
     actionProc.command = ["/usr/bin/python3", helper, action, "--battery", battery.key]
     actionProc.running = true
   }
+  // History file commands run one at a time; each prints the stored buckets.
+  function runHistory(args) {
+    historyQueue = historyQueue.concat([args])
+    if (!historyProc.running) nextHistory()
+  }
+  function nextHistory() {
+    if (!historyQueue.length) return
+    historyProc.command = ["/usr/bin/python3", energyHelper].concat(historyQueue[0])
+    historyQueue = historyQueue.slice(1)
+    historyProc.running = true
+  }
+  function receiveHistory(raw) {
+    try {
+      var data = JSON.parse(raw)
+      if (data.error) throw new Error(data.error)
+      if (!Array.isArray(data.buckets)) throw new Error("Incomplete response")
+      historyBuckets = data.buckets
+      historyError = ""
+    } catch (e) {
+      historyError = String(e.message || e)
+    }
+  }
+  function toggleHistoryRecording() {
+    historyPending = null
+    settings = Object.assign({}, settings, {historyEnabled: !historyRecording})
+    if (bar && bar.shell) bar.shell.updateEntryInline(moduleName, settings)
+  }
+  function clearHistory() {
+    historyPending = null
+    runHistory(["--clear-history"])
+  }
   function setProfile(profile) {
     if (!statusValid || profileProc.running) return
     profileError = ""
@@ -143,6 +190,7 @@ Panel {
   function activateCursor() {
     if (enabledControls.indexOf(cursorIndex) < 0) return
     if (cursorIndex === controlCount) { screenSettings.toggle(); return }
+    if (cursorIndex === historyIndex) { historyView.toggle(); return }
     var offset = battery.supported ? 2 : 0
     if (offset && cursorIndex < 2) charge(cursorIndex === 0 ? Model.protectionAction(battery) : Model.fullChargeAction(battery))
     else if (profiles[cursorIndex - offset]) setProfile(profiles[cursorIndex - offset])
@@ -154,7 +202,7 @@ Panel {
     cursorActive = false
   }
   function revealControl(index) {
-    var item = index === controlCount ? screenSettings : index === 0 && battery.supported ? protectButton
+    var item = index === historyIndex ? historyView : index === controlCount ? screenSettings : index === 0 && battery.supported ? protectButton
       : index === 1 && battery.supported ? fullButton
       : profileRepeater.itemAt(index - (battery.supported ? 2 : 0))
     revealItem(item)
@@ -178,10 +226,10 @@ Panel {
     function toggle() { root.toggle() }
     function togglePercentage() { root.togglePercentage() }
   }
-  Component.onCompleted: refresh()
+  Component.onCompleted: { refresh(); runHistory(["--history"]) }
   onOpenedChanged: {
     if (opened) { refresh(); cursorActive = false; cursorIndex = 0; scroll.contentY = 0 }
-    else screenSettings.cancel(true)
+    else { screenSettings.cancel(true); historyView.close() }
   }
   onSelectedKeyChanged: cursorActive = false
   visible: batteryPresent || errorText !== ""
@@ -207,6 +255,11 @@ Panel {
   }
   Process { id: notifyProc }
   Process { id: modelProc }
+  Process {
+    id: historyProc
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: if (text.trim()) root.receiveHistory(text) }
+    onExited: Qt.callLater(root.nextHistory)
+  }
   // Plugging in or unplugging updates the panel at once instead of at the next poll.
   // Unplugging also ends a temporary full charge immediately; the 15-second guard
   // timer stays as the fallback and would miss a quick unplug and replug.
@@ -280,7 +333,7 @@ Panel {
       LayoutMirroring.enabled: strings.rightToLeft
       LayoutMirroring.childrenInherit: true
       anchors.fill: parent
-      blocked: screenSettings.expanded
+      blocked: screenSettings.expanded || historyView.expanded
       onMoveRequested: function(dx, dy) {
         root.cursorIndex = Model.nextControl(root.cursorIndex, dx || dy, root.enabledControls, root.cursorActive)
         root.cursorActive = true
@@ -289,7 +342,7 @@ Panel {
       onActivateRequested: if (root.cursorActive) root.activateCursor()
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
-      onTextKey: function(key) { if (key === "[") root.selectBattery(-1); else if (key === "]") root.selectBattery(1); else if (key === "d") root.actionError = ""; else if (key === "s") screenSettings.toggle() }
+      onTextKey: function(key) { if (key === "[") root.selectBattery(-1); else if (key === "]") root.selectBattery(1); else if (key === "d") root.actionError = ""; else if (key === "s" && !historyView.expanded) screenSettings.toggle(); else if (key === "u" && !screenSettings.expanded) historyView.toggle() }
       Flickable {
         id: scroll
         anchors.fill: parent
@@ -305,7 +358,7 @@ Panel {
         Column {
           id: overview
           width: parent.width
-          visible: !screenSettings.expanded
+          visible: !screenSettings.expanded && !historyView.expanded
           spacing: Style.space(14)
         Row {
           width: parent.width
@@ -555,6 +608,7 @@ Panel {
         ScreenSettings {
           id: screenSettings
           width: parent.width
+          visible: !historyView.expanded
           controller: idleController
           navigationOwner: root
           navigationIndex: root.controlCount
@@ -563,6 +617,24 @@ Panel {
           onExpandedChanged: scroll.contentY = 0
           onReveal: function(item) { Qt.callLater(function() { root.revealItem(item) }) }
           onReturnToPanel: { keyCatcher.forceActiveFocus(); root.cursorIndex = root.controlCount; root.cursorActive = true }
+        }
+        HistoryView {
+          id: historyView
+          width: parent.width
+          visible: !screenSettings.expanded
+          navigationOwner: root
+          navigationIndex: root.historyIndex
+          foreground: root.bar.foreground
+          fontFamily: root.bar.fontFamily
+          recording: root.historyRecording
+          buckets: Energy.withPending(root.historyBuckets, root.historyPending)
+          error: root.historyError
+          onOpened: { now = Date.now() / 1000; root.runHistory(["--history"]) }
+          onRecordingToggled: root.toggleHistoryRecording()
+          onClearRequested: root.clearHistory()
+          onExpandedChanged: scroll.contentY = 0
+          onReveal: function(item) { Qt.callLater(function() { root.revealItem(item) }) }
+          onReturnToPanel: { keyCatcher.forceActiveFocus(); root.cursorIndex = root.historyIndex; root.cursorActive = true }
         }
       }
       }

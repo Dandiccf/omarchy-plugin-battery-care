@@ -3,8 +3,9 @@
 
 Prints cumulative counters grouped by systemd unit (apps launched by the desktop
 have their own scope). The panel turns successive samples into energy impact.
-No privileges are needed. The only file written is the small laptop power model
-the panel learns on battery (--save-model), kept in the private state directory.
+No privileges are needed. Files are written only to the private state
+directory: the small laptop power model the panel learns on battery
+(--save-model) and the 10-day usage history of 15-minute buckets (--add-history).
 """
 import argparse
 import configparser
@@ -27,6 +28,12 @@ SERVICE_NAMES = {'init.scope': 'systemd'}
 MAX_PROCS = 32
 MODEL = 'power-model.json'
 MODEL_KEYS = ('w', 'a', 'p', 'aa', 'ap')
+HISTORY = 'history.json'
+BUCKET = 900
+RETENTION = 10 * 86400
+BUCKET_APPS = 5
+BUCKET_NUMBERS = ('seconds', 'battery', 'charged', 'wh', 'active')
+KINDS = ('app', 'service', 'system')
 
 
 def read_text(path, limit=65536):
@@ -284,13 +291,106 @@ def save_model(raw):
         battery.publish_file(directory_fd, MODEL, json.dumps(model) + '\n', replace=True)
 
 
+def number(value, high):
+    return not isinstance(value, bool) and isinstance(value, (int, float)) and 0 <= value <= high
+
+
+def valid_bucket(bucket, now):
+    """Strictly validated 15-minute bucket, or None."""
+    keys = {'start', 'level', 'apps', *BUCKET_NUMBERS}
+    if not isinstance(bucket, dict) or set(bucket) != keys:
+        return None
+    start = bucket['start']
+    if (isinstance(start, bool) or not isinstance(start, int) or start % BUCKET
+            or not now - RETENTION - BUCKET <= start <= now + BUCKET):
+        return None
+    if not all(number(bucket[k], 1e7) for k in BUCKET_NUMBERS):
+        return None
+    if bucket['level'] is not None and not number(bucket['level'], 100):
+        return None
+    apps = bucket['apps']
+    if not isinstance(apps, list) or len(apps) > BUCKET_APPS:
+        return None
+    for app in apps:
+        if (not isinstance(app, dict) or set(app) != {'name', 'kind', 'cores'}
+                or not isinstance(app['name'], str) or not 0 < len(app['name']) <= 128
+                or app['kind'] not in KINDS or not number(app['cores'], 1e7)):
+            return None
+    return {'start': start, 'level': bucket['level'], 'apps': [dict(a) for a in apps],
+            **{k: float(bucket[k]) for k in BUCKET_NUMBERS}}
+
+
+def merge(older, newer):
+    """A shell restart within a bucket produces two partial buckets with one start."""
+    result = {k: older[k] + newer[k] for k in BUCKET_NUMBERS}
+    apps = {}
+    for app in older['apps'] + newer['apps']:
+        key = (app['kind'], app['name'])
+        apps[key] = apps.get(key, 0) + app['cores']
+    ranked = sorted(apps.items(), key=lambda item: (-item[1], item[0][1]))[:BUCKET_APPS]
+    result.update(start=newer['start'], level=newer['level'] if newer['level'] is not None else older['level'],
+                  apps=[{'name': name, 'kind': kind, 'cores': cores} for (kind, name), cores in ranked])
+    return result
+
+
+def load_history(now):
+    """Stored buckets within retention; an absent or corrupt file reads as empty."""
+    try:
+        with battery.safe_directory(battery.STATE, create=False) as directory_fd:
+            raw = battery.read_owned(directory_fd, HISTORY)
+        data = json.loads(raw) if raw else {}
+    except FileNotFoundError:
+        return []
+    except ValueError:
+        return []
+    buckets = data.get('buckets') if isinstance(data, dict) else None
+    if not isinstance(buckets, list):
+        return []
+    return sorted((b for b in map(lambda b: valid_bucket(b, now), buckets) if b), key=lambda b: b['start'])
+
+
+def add_history(raw, now=None):
+    now = time.time() if now is None else now
+    bucket = valid_bucket(json.loads(raw), now)
+    if bucket is None:
+        raise ValueError('Invalid history bucket')
+    buckets = {b['start']: b for b in load_history(now)}
+    existing = buckets.get(bucket['start'])
+    buckets[bucket['start']] = merge(existing, bucket) if existing else bucket
+    kept = sorted((b for b in buckets.values() if b['start'] >= now - RETENTION - BUCKET), key=lambda b: b['start'])
+    with battery.safe_directory(battery.STATE, private=True) as directory_fd:
+        battery.publish_file(directory_fd, HISTORY, json.dumps({'version': 1, 'buckets': kept}) + '\n', replace=True)
+    return kept
+
+
+def clear_history():
+    """Remove only our own regular history file."""
+    try:
+        with battery.safe_directory(battery.STATE, create=False) as directory_fd:
+            if battery.read_owned(directory_fd, HISTORY) is not None:
+                os.unlink(HISTORY, dir_fd=directory_fd)
+                os.fsync(directory_fd)
+    except FileNotFoundError:
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--save-model', metavar='JSON')
+    commands = parser.add_mutually_exclusive_group()
+    commands.add_argument('--save-model', metavar='JSON')
+    commands.add_argument('--add-history', metavar='JSON')
+    commands.add_argument('--history', action='store_true')
+    commands.add_argument('--clear-history', action='store_true')
     args = parser.parse_args()
     try:
         if args.save_model is not None:
             save_model(args.save_model)
+            return 0
+        if args.add_history is not None or args.history or args.clear_history:
+            if args.clear_history:
+                clear_history()
+            buckets = add_history(args.add_history) if args.add_history is not None else load_history(time.time())
+            print(json.dumps({'buckets': buckets}, allow_nan=False))
             return 0
         result = sample()
         result['model'] = load_model()

@@ -92,3 +92,51 @@ console.log('energy model tests passed')
   assert.deepEqual(e.fit(flat.model), { base: 8, perCore: 0 })
   console.log('laptop power model tests passed')
 }
+{
+  // History buckets: accumulate per 15 minutes, battery activity only, gaps skipped.
+  const s = (time, a, b) => ({ time, gpuClock: null, units: [
+    { id: 'a', name: 'Chromium', kind: 'app', cpu: a, gpuNs: 0, gpuCycles: 0 },
+    { id: 'b', name: 'pipewire', kind: 'service', cpu: b, gpuNs: 0, gpuCycles: 0 }] })
+  const T = 1800000000
+  let p = e.accumulate(null, null, s(0, 0, 0), { now: T + 10, onBattery: true, rate: 10, level: 50 }).pending
+  assert.equal(p.seconds, 0, 'the first sample only opens the bucket')
+  let step = e.accumulate(p, s(0, 0, 0), s(30, 15e6, 3e6), { now: T + 40, onBattery: true, rate: 10, level: 49 })
+  p = step.pending
+  assert.equal(step.flushed, null)
+  assert.equal(p.battery, 30)
+  assert.ok(Math.abs(p.wh - 10 * 30 / 3600) < 1e-12)
+  assert.ok(Math.abs(p.apps['app\nChromium'].cores - 15) < 1e-9, 'core-seconds')
+  p = e.accumulate(p, s(30, 15e6, 3e6), s(60, 30e6, 3e6), { now: T + 70, onBattery: false, rate: 0, level: 50 }).pending
+  assert.equal(p.charged, 30)
+  assert.ok(Math.abs(p.apps['app\nChromium'].cores - 15) < 1e-9, 'no app activity recorded on AC')
+  p = e.accumulate(p, s(60, 0, 0), s(500, 0, 0), { now: T + 510, onBattery: true, rate: 10, level: 50 }).pending
+  assert.equal(p.seconds, 60, 'gaps such as suspend are not counted')
+  step = e.accumulate(p, s(500, 0, 0), s(530, 0, 0), { now: T + 900 + 5, onBattery: true, rate: 10, level: 48 })
+  assert.equal(step.flushed.start, T)
+  assert.deepEqual(step.flushed.apps.map(a => a.name), ['Chromium', 'pipewire'])
+  assert.equal(step.flushed.level, 50)
+  assert.equal(step.pending.start, T + 900)
+  assert.equal(e.finish({ ...step.pending, seconds: 10 }), null, 'tiny buckets are not stored')
+
+  // Views: 96 day slots, plugged-in highlight, watts, and app shares.
+  const buckets = [
+    { start: T, seconds: 900, battery: 900, charged: 0, wh: 2.5, active: 400, level: 60, apps: [{ name: 'Chromium', kind: 'app', cores: 300 }, { name: 'kitty', kind: 'app', cores: 100 }] },
+    { start: T + 900, seconds: 900, battery: 0, charged: 900, wh: 0, active: 0, level: 70, apps: [] }]
+  const slots = e.daySlots(buckets, T + 1000)
+  assert.equal(slots.length, 96)
+  assert.deepEqual(slots[94], { start: T, level: 60, plugged: false, watts: 10 })
+  assert.equal(slots[95].plugged, true)
+  assert.equal(slots[95].watts, null)
+  assert.equal(slots[0].level, null)
+  const apps = e.topApps(buckets, T, 5)
+  assert.deepEqual(apps.map(a => [a.name, a.share]), [['Chromium', 0.75], ['kitty', 0.25]])
+  const days = e.weekDays(buckets, T + 1000)
+  assert.equal(days.length, 10)
+  assert.equal(days.reduce((sum, d) => sum + d.wh, 0), 2.5)
+  const merged = e.withPending(buckets, { start: T + 900, seconds: 300, battery: 300, charged: 0, wh: 1, active: 10, level: 69, apps: {} })
+  assert.equal(merged.length, 2)
+  assert.equal(merged[1].seconds, 1200)
+  assert.equal(merged[1].level, 69)
+  assert.equal(e.withPending(buckets, null), buckets)
+  console.log('history tests passed')
+}

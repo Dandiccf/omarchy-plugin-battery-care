@@ -1,5 +1,9 @@
 # Release notes and future improvements
 
+## Added in 0.6.0
+
+- **Battery history** view (`U`): 24 hours of battery level and power use per 15 minutes with plugged-in periods highlighted, 10 days of battery energy per day, and the apps with the largest share of on-battery activity. Stored privately for 10 days with strict validation. Partial records from a shell restart are merged. Recording can be switched off and the history cleared.
+
 ## Added in 0.5.1
 
 - **Immediate restoration on unplug:** the panel runs recovery on UPower’s unplug event, so a quick unplug and replug between timer checks still ends a temporary full charge. The 15-second timer remains the fallback.
@@ -62,8 +66,7 @@ The replacement adds reversible charge controls, persistent temporary-session re
 
 1. Explicit “stop managing” UI with service cleanup; Omarchy currently does not run uninstall hooks.
 2. Optional full-charge completion notification.
-3. Short power-use history (for example, the last 24 hours on battery) with clear sampling and retention controls, built on the in-memory energy sampler.
-4. Custom charge presets only through a supported, authorized backend; avoid raw root-level sysfs scripts.
-5. Upstream the enabled-state indicator fix so the standard widget improves even for people who do not install Battery Care.
+3. Custom charge presets only through a supported, authorized backend; avoid raw root-level sysfs scripts.
+4. Upstream the enabled-state indicator fix so the standard widget improves even for people who do not install Battery Care.
 
 No performance-profile changes should silently alter charge protection. No preset should be labeled active without checking its actual enabled state. Battery diagnostics should distinguish estimates from hardware settings.

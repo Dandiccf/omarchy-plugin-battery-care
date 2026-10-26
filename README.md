@@ -9,12 +9,13 @@ A replacement for Omarchy’s Power widget: charge protection, a temporary full-
 - **Accurate status:** an available preset is never presented as enabled. Hardware limits are displayed separately; disagreements with UPower are flagged.
 - **Useful telemetry:** health, cycle count, full capacity, charge/discharge power, runtime, and battery model. The charge bar marks the real active cap.
 - **Using significant energy:** like the macOS battery menu, lists the apps and services with the highest recent CPU and GPU activity, grouped by the systemd scope each app runs in (browser helpers count toward the browser). After 5 minutes on battery, each entry also shows an estimated wattage. Unprivileged, nothing is stored; see [Energy use](#energy-use).
+- **Battery history:** like macOS Settings → Battery, the last 24 hours (battery level and power use per 15 minutes, plugged-in periods highlighted) or 10 days (battery energy per day), with the apps that used the most energy on battery. Stored only on this device; recording can be switched off and the history cleared.
 - **Charger warnings:** if a connected charger cannot keep up (too weak, loose cable, wrong port), the panel says **Plugged in · battery draining** and a desktop notification appears, even with the panel closed.
 - **Power profiles:** retains Omarchy’s separately remembered plugged-in and battery profiles.
 - **Screen & lock:** shared or separate battery/plugged-in screensaver and lock timeouts, presets and custom minutes/seconds, Apply/Cancel, and a Stay Awake indicator. Existing settings are inherited until you apply a change.
 - **Multiple batteries:** independently selectable controls and recovery state; peripheral batteries are excluded. Unsupported batteries retain monitoring.
 - **Keyboard:** arrows select available charge actions and profiles (disabled actions are skipped), Enter activates, Escape closes, `[` / `]` selects batteries, and `D` dismisses an action error. Right-click the tray icon toggles its percentage.
-- **Screen settings keyboard:** `S` opens Screen & lock. Tab moves between its controls; Enter opens a selector, arrows choose a value, and Escape closes a menu or cancels the form. Unsaved drafts survive background refreshes and are discarded when the panel closes.
+- **Screen settings keyboard:** `S` opens Screen & lock and `U` opens Battery history. Tab moves between its controls; Enter opens a selector, arrows choose a value, and Escape closes a menu or cancels the form. Unsaved drafts survive background refreshes and are discarded when the panel closes.
 - **Failure visibility:** stale status disables charge actions, action errors persist until dismissed or retried, and an inactive recovery guard is reported. Small panels scroll, and narrow panels stack their controls.
 
 ![Battery Care panel](preview.png)
@@ -82,6 +83,12 @@ Once protection is selected, the guard keeps it enabled until you switch the lim
 **Using significant energy** shows up to five apps or services whose CPU and GPU time over the last 3 minutes reaches an impact of at least 5. An impact of 100 means one CPU core or GPU engine is fully busy. `energy.py` reads per-unit `cpu.stat` counters from the systemd cgroup tree and DRM `fdinfo` GPU counters for your own processes. Names come from desktop entries. Launcher scopes such as `gtk-launch` are named after the program they run, and web apps after their desktop entry or host. Samples are kept in memory only: every 5 seconds while the panel is open and every 30 seconds while it is closed.
 
 Linux does not expose per-app power without root, so watts are estimates. After 5 minutes of uninterrupted battery readings, the drain above the lowest recent rate (an approximation of the display and idle baseline) is split by activity share. On AC power, or before the baseline is known, only impact is shown. GPU time is available on drivers that publish DRM fdinfo usage (`xe`, `i915`, `amdgpu`); other system users' GPU clients are not visible.
+
+## Battery history
+
+Open **Battery history** at the bottom of the panel, or press `U`. **24 hours** shows the battery level and the average power use on battery for each 15-minute step. Plugged-in steps are highlighted. **10 days** shows the battery energy used per day. Both views list the apps and services with the largest share of CPU and GPU time while on battery.
+
+The panel aggregates its existing samples in memory and stores one record per 15 minutes in `~/.local/state/omarchy-battery-care/history.json`, a private file, for 10 days. Each record contains the time, battery level, time on battery and plugged in, battery energy used, and up to five app names with their activity. Gaps mean the laptop was asleep or off, or the shell was not running; nothing is filled in. Switch **Record battery history** off to stop recording, or choose **Clear history** to delete the file. The widget setting `historyEnabled` controls the same switch.
 
 ## Screen & lock
 
