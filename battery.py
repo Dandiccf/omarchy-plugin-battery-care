@@ -337,9 +337,8 @@ def reconcile(api, state, devices, boot, on_battery, external=None):
             try:
                 wanted = True
                 if record.get('external'):
-                    if external is None:
-                        external = external_display()
-                    wanted = external
+                    # 'auto' is protection that only holds while a display is attached.
+                    wanted = external_display() if external is None else external
                 if bool(device.get('ChargeThresholdEnabled')) != wanted:
                     api.enable(device, wanted)
                 record.pop('error', None)
@@ -373,7 +372,7 @@ def guard_warning(state):
     return ''
 
 
-def prepare_release(api, state, devices):
+def prepare_release(api, state, devices, external=None):
     """Restore temporary sessions, preserving an explicit Off choice."""
     available = {d['key'] for d in devices}
     pending = [key for key, r in state.get('batteries', {}).items()
@@ -383,8 +382,12 @@ def prepare_release(api, state, devices):
     for device in devices:
         record = state.get('batteries', {}).get(device['key'], {})
         if record.get('mode') in ('protect', 'full'):
-            if not device.get('ChargeThresholdEnabled'):
-                api.enable(device, True)
+            wanted = True
+            if record.get('external'):
+                # The chosen rule is display-conditional; keep it conditional on release.
+                wanted = external_display() if external is None else external
+            if bool(device.get('ChargeThresholdEnabled')) != wanted:
+                api.enable(device, wanted)
 
 
 def snapshot(api, state):
@@ -419,7 +422,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['status', 'protect', 'full', 'off', 'auto', 'reconcile', 'release'])
     parser.add_argument('--battery', default='')
+    # Sent by the panel on UPower's unplug event: the charger may already be back
+    # by the time this runs, but the session ended and must not survive.
+    parser.add_argument('--unplugged', action='store_true')
     args = parser.parse_args()
+    if args.unplugged and args.action != 'reconcile':
+        parser.error('--unplugged is only valid with reconcile')
     try:
         api = UPower(interactive=args.action in ('protect', 'full', 'off', 'auto', 'release'))
         with locked():
@@ -433,7 +441,7 @@ def main():
                 print(json.dumps(data, allow_nan=False))
                 return 0
             if args.action == 'reconcile':
-                reconcile(api, state, api.devices(), boot_id(), api.on_battery())
+                reconcile(api, state, api.devices(), boot_id(), args.unplugged or api.on_battery())
                 return 0
             elif args.action in ('protect', 'full', 'off', 'auto'):
                 devices = api.devices()

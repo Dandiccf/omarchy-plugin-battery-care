@@ -46,7 +46,68 @@ assert.equal(m.status({...held, state: 2}, true), 'On battery')
 assert.equal(m.batteryIcon({...b, state: 4, percentage: 100}, false), '󰚥')
 assert.match(m.explanation(held, false), /Stops charging at 80%.*Resumes below 75%/)
 console.log('7 plugged-in presentation regression assertions passed')
+{
+  // Firmware reporting 0 W: net power comes from stored-energy changes.
+  const bat = { key: 'BAT0', energy: 1.21, state: 1, rate: 0, percentage: 2, supported: true, enabled: true, end: 80, start: 75 }
+  let t = m.trackEnergy({}, [bat], 0)
+  assert.deepEqual(t.flows, {}, 'one reading is not a measurement')
+  t = m.trackEnergy(t.history, [{ ...bat, energy: 1.18 }], 10000)
+  assert.deepEqual(t.flows, {}, 'needs at least 30 seconds')
+  t = m.trackEnergy(t.history, [{ ...bat, energy: 1.135 }], 30000)
+  assert.ok(Math.abs(t.flows.BAT0 + 9) < 1e-9, String(t.flows.BAT0))
+  const drained = { ...bat, flow: t.flows.BAT0 }
+  assert.equal(m.draining(drained, false), true)
+  assert.equal(m.draining(drained, true), false, 'discharging on battery is normal')
+  assert.equal(m.draining({ ...bat, flow: -0.5 }, false), false, 'small drift is ignored')
+  assert.equal(m.draining({ ...bat, state: 2, rate: 5 }, false), true)
+  assert.equal(m.status(drained, false), 'Plugged in · battery draining')
+  assert.equal(m.flowLabel(drained, false), 'Battery drain')
+  assert.equal(m.flowValue(drained), '≈ 9.0 W')
+  assert.equal(m.flowLabel({ ...bat, rate: 37.2 }, false), 'Into battery')
+  assert.equal(m.flowValue({ ...bat, rate: 37.2, flow: 36 }), '37.2 W', 'firmware rate wins')
+  assert.equal(m.flowLabel({ ...bat, state: 2, rate: 12 }, true), 'From battery')
+  assert.equal(m.flowValue({ ...bat, flow: 0.2 }), '0.0 W')
+  assert.equal(m.flowValue({ key: 'x', rate: null }), '—')
+  // Old readings expire, and the newest reading at least 30 s old is the base.
+  t = m.trackEnergy({ BAT0: [{ time: 0, energy: 1 }, { time: 400000, energy: 2 }] }, [{ ...bat, energy: 2.5 }], 450000)
+  assert.deepEqual(t.history.BAT0.map(r => r.time), [400000, 450000])
+  assert.ok(Math.abs(t.flows.BAT0 - 36) < 1e-9)
+  console.log('measured power-flow assertions passed')
+}
+{
+  // Time to the active limit, from the firmware rate or the measured flow.
+  const c = { key: 'BAT0', state: 1, enabled: true, end: 80, full: 58.5, energy: 3, rate: 36, timeToFull: 5100 }
+  assert.ok(Math.abs(m.timeToStop(c) - (58.5 * 0.8 - 3) / 36 * 3600) < 1e-6)
+  assert.equal(m.stopLabel(c), 'Time to 80%')
+  assert.equal(m.duration(m.timeToStop(c)), '1h 13m')
+  assert.ok(m.timeToStop({ ...c, rate: 0, flow: 30 }) > 0, 'measured flow fills a 0 W firmware rate')
+  assert.equal(m.timeToStop({ ...c, rate: 0, flow: null }), 0)
+  assert.equal(m.timeToStop({ ...c, energy: 50 }), 0, 'already above the limit')
+  assert.equal(m.timeToStop({ ...c, enabled: false }), 5100, 'UPower estimate without a limit')
+  assert.equal(m.stopLabel({ ...c, enabled: false }), 'Time to full')
+  assert.equal(m.timeToStop({ ...c, state: 2 }), 0)
+  console.log('time-to-limit assertions passed')
+}
+{
+  // Charger input and laptop use: measured on battery, estimated on AC.
+  const c = { key: 'BAT0', state: 1, rate: 38.3, flow: null }
+  assert.equal(m.laptopValue(c, false, null), '—', 'unknown until learned')
+  assert.equal(m.chargerValue(c, false, null), '—')
+  assert.equal(m.laptopValue(c, false, 9), '≈ 9.0 W')
+  assert.equal(m.chargerValue(c, false, 9), '≈ ' + ((38.3 + 9) / 0.92).toFixed(1) + ' W')
+  assert.equal(m.chargerValue({ key: 'BAT0', state: 5, rate: 0 }, false, 9), '≈ 9.8 W', 'charge paused at the limit')
+  assert.equal(m.chargerValue({ key: 'BAT0', state: 1, rate: 0, flow: -9 }, false, 12), '≈ 3.3 W', 'weak charger')
+  assert.equal(m.chargerValue({ key: 'BAT0', state: 1, rate: 0, flow: -20 }, false, 12), '≈ 0.0 W', 'never negative')
+  const d = { key: 'BAT0', state: 2, rate: 9.9 }
+  assert.equal(m.laptopValue(d, true, 50), '9.9 W', 'measured on battery, not estimated')
+  assert.equal(m.chargerValue(d, true, 50), 'Not connected')
+  assert.equal(m.flowLabel(d, true), 'From battery')
+  console.log('charger and laptop power assertions passed')
+}
 assert.equal(m.autoAction({auto: true}), 'protect')
 assert.equal(m.autoAction({auto: false}), 'auto')
 assert.match(m.explanation({...b, auto: true, enabled: false}, false), /only while an external display/)
 assert.match(m.explanation({...b, auto: true, enabled: true}, false), /Applies only while an external display/)
+assert.equal(m.autoLabel({auto: true}), 'Only with external display \u00b7 On')
+assert.equal(m.autoLabel({auto: false}), 'Only with external display \u00b7 Off')
+console.log('6 external-display protection assertions passed')

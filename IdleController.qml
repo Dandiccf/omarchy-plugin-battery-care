@@ -1,3 +1,4 @@
+import qs.Commons
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -6,6 +7,7 @@ import Quickshell.Wayland
 
 Item {
   id: root
+  CareTranslations { id: strings; directory: Qt.resolvedUrl("i18n") }
   property bool panelOpen: false
   property string helper: decodeURIComponent(Qt.resolvedUrl("idle_settings.py").toString().replace(/^file:\/\//, ""))
   property var snapshot: null

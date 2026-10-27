@@ -37,7 +37,7 @@ The button QML harness exercises hover signals and bindings; it is not a substit
 
 ## Remaining limitations and release checks
 
-1. **Recovery polls every 15 seconds.** A brief unplug/replug entirely between checks may be missed. Cancel full charge or unplug for at least one interval; event-driven AC handling remains a future improvement.
+1. **Recovery polls every 15 seconds as a fallback.** Since 0.5.1 the panel also restores protection on UPower’s unplug event. Only with the widget disabled or the shell stopped can a brief unplug/replug between checks be missed.
 2. **Recovery is a user-session service.** After reboot it resumes at login, not before login or in firmware. A physical reboot during an active full-charge session remains untested; automated boot-ID recovery passes. The completed physical reboot started in protection mode.
 3. **Hardware coverage is one ThinkPad.** Multiple-battery, unsupported-device, and several failure cases are simulated. Other UPower versions, firmware limits, and laptops need live testing before a broad compatibility claim.
 4. **Limits come from UPower.** The plugin does not offer arbitrary custom percentages or forcibly drain a battery that is already above the limit. Other charge managers can still change the same hardware; disagreements are reported.
@@ -88,3 +88,28 @@ The plugged-in display now uses a plug icon when connected without charging, ret
 The maintainer confirmed the earlier lock/unit fixes but identified the local installer's predictable backup destination as an additional blocker. `backup_config.py` now reuses the verified directory/file helpers: descriptor-based no-follow reads, owner/type/permission/link-count checks, a random destination, private flushed temporary contents, and no-clobber hard-link publication. Existing destination collisions are refused, never replaced or followed. A missing configuration needs no backup; an unsafe source or backup failure aborts before widget enable and cleans up only a newly created development link.
 
 Validation: 88 Python tests, 39 JavaScript assertions, five QML flows, manifest validation, shell syntax, and diff checks passed. Six new installer tests cover repeated backups, permissions, existing file/symlink/dangling-symlink/hard-link/directory/FIFO collisions, unsafe source/directory rejection, missing config, and failure cleanup. The timeout-menu harness initially failed because the compositor resized its window; it now places its bottom selector relative to the actual window height, and all five flows passed on rerun. No production dropdown change was needed. Previously documented hardware/idle coverage limits remain applicable.
+
+## 0.4.0 — Omarchy 4 compatibility and translations
+
+Added 13 complete catalogs (English, German, Spanish, French, Portuguese, Italian, Polish, Russian, Arabic, Hindi, Japanese, Korean, Simplified Chinese), native 4.5 language switching, and an older-shell system-locale fallback. The native-only component is loaded dynamically so missing I18n/Translations types do not prevent older shells from loading the plugin. Catalog names are validated from POSIX locales; regional catalogs fall back to the base language and English. Technical diagnostics remain intact when no translation is available. Number formatting uses the native service or Qt locale. Arabic layout mirroring follows the selected language.
+
+The bar detects the separate label property at runtime, retaining the original combined icon/percentage on old shells and using separate fields on 4.5. No battery, charge recovery, installer, or idle backend behavior was changed.
+
+Validation includes catalog coverage/placeholder checks, POSIX locale precedence/normalization/path rejection, model regressions, all Python cases, and six production-QML flows on both the installed 4.5 shell and the official v4.0.0 and v4.0.4 shell sources. The legacy fixture lacks I18n and Translations and checks German selected by de_AT.UTF-8, base-language fallback, localized numbers, and the old bar API. Current Qt introduces a Color name collision in the old upstream UI; a namespace-only transformation in a disposable fixture qualifies Commons.Color so strict runtime checks can run. An unmodified-source diagnostic run also passed all behavioral assertions, with those upstream color warnings. This is not a full old OS/Qt/Quickshell installation test. Native-speaker review of new translations and exhaustive visual layout review in every language remain open quality work.
+
+## Energy use and charger warnings — 0.5.0
+
+Added and reviewed 2026-10-26 on the ThinkPad X1 Gen 14 (Intel `xe` graphics).
+
+- **Per-app energy impact** reads systemd cgroup `cpu.stat` and DRM `fdinfo` counters without privileges and stores nothing. Each DRM client is counted once. Launcher scopes are named after the program they run. Watt estimates appear only after 5 minutes of uninterrupted battery readings and are labeled as estimates.
+- **Live incident that motivated the charger warning:** with a weak or intermittent USB-C connection, firmware reported `Charging` and 0 W while stored energy fell by about 9 W. The panel previously showed “Charging · protection on, 0.0 W”. Net power is now measured from stored energy over at least 30 seconds. A plugged-in battery losing more than 1 W is flagged in the panel and by a critical desktop notification.
+- Verified against sysfs while charging: the energy delta measured +33.6 W against firmware `power_now` of 34.5–35.9 W, and percentage, thresholds, health, cycles, and guard state matched. A charger showing 51 W output corresponds to about 36–39 W into the battery, plus system load and conversion losses. The panel labels this rate **Into battery**.
+- Tests: new Python sampler tests (`tests/test_energy.py`), Node tests for impact, watts, measured flow, drain detection, and time to the limit, plus a QML panel check of energy sampling and error handling.
+- Not yet observed live: the drain warning and notification firing (covered by tests using the −9 W readings from the incident), and watt estimates after 5 minutes on battery.
+
+## Battery history — 0.6.0
+
+- The panel aggregates its existing energy samples into 15-minute buckets in memory and flushes each finished bucket through `energy.py --add-history`. The helper strictly validates each bucket: exact keys, aligned start time within retention, bounded numbers, level 0–100, and up to five apps with known kinds and names of at most 128 characters. It merges partial buckets from a restart, prunes entries older than 10 days, and publishes atomically with the existing private-file checks. A corrupt history file reads as empty. Unsafe files (symlinks, foreign owners) are refused and never followed. Clearing removes only the verified regular file.
+- Sampling gaps longer than 2 minutes (suspend, stalled shell) are not counted, so charts show gaps instead of invented values. App activity is recorded only on battery.
+- Verified live with temporary demo data in both views (24 hours and 10 days), keyboard access (`U`, Tab, Enter), then cleared. `h` was rejected as a shortcut because Omarchy's panel reserves h/j/k/l for navigation.
+- Tests: Python history storage (validation, merge, retention, corruption, symlink refusal), Node aggregation and views (gaps, AC/battery split, flush on bucket change, slot and day mapping, shares, pending merge), and QML panel history loading and error handling.

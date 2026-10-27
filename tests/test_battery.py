@@ -125,6 +125,15 @@ class RecoveryTests(BatteryFixture):
         self.assertEqual((record['mode'], record['external']), ('protect', True))
         self.assertFalse(self.api.device['ChargeThresholdEnabled'])
 
+    def test_release_keeps_the_external_display_rule(self):
+        b.apply_action(self.api, self.state, self.api.device, 'auto', 'boot1', False, external=True)
+        self.api.calls.clear()
+        b.prepare_release(self.api, self.state, self.api.devices(), external=True)
+        self.assertEqual(self.api.calls, [])
+        b.prepare_release(self.api, self.state, self.api.devices(), external=False)
+        self.assertEqual(self.api.calls[-1], ('bat0', False))
+        self.assertFalse(self.api.device['ChargeThresholdEnabled'])
+
     def test_external_display_detection(self):
         drm = Path(self.temp.name) / 'drm'
         for name, status in [('card0-eDP-1', 'connected'), ('card1-DSI-1', 'connected'), ('card0-DP-1', 'disconnected')]:
@@ -192,6 +201,38 @@ class RecoveryTests(BatteryFixture):
     def test_external_manager_mismatch_is_visible(self):
         self.api.device['ChargeThresholdEnabled'] = True
         self.assertTrue(b.snapshot(self.api, self.state)['batteries'][0]['mismatch'])
+
+
+class UnplugEventTests(BatteryFixture):
+    def run_main(self, *argv):
+        import contextlib, io
+        with patch.object(b, 'UPower', return_value=self.api), patch.object(b, 'boot_id', return_value='boot1'), \
+                patch('sys.argv', ['battery.py', *argv]), contextlib.redirect_stdout(io.StringIO()) as out:
+            return b.main(), out.getvalue()
+
+    def test_unplug_event_restores_even_if_charger_is_back(self):
+        self.full()
+        # The fake reports AC power: a quick unplug/replug the timer would miss.
+        self.assertEqual(self.run_main('reconcile', '--unplugged')[0], 0)
+        self.assertTrue(self.api.device['ChargeThresholdEnabled'])
+        self.assertEqual(b.read_state()['batteries']['bat0']['mode'], 'protect')
+
+    def test_plain_reconcile_keeps_full_session_while_plugged_in(self):
+        self.full()
+        self.run_main('reconcile')
+        self.assertFalse(self.api.device['ChargeThresholdEnabled'])
+        self.assertEqual(b.read_state()['batteries']['bat0']['mode'], 'full')
+
+    def test_unplug_event_respects_explicit_off(self):
+        b.apply_action(self.api, self.state, self.api.device, 'off', 'boot1', False)
+        self.run_main('reconcile', '--unplugged')
+        self.assertFalse(self.api.device['ChargeThresholdEnabled'])
+
+    def test_unplugged_flag_is_only_for_reconcile(self):
+        import contextlib, io
+        with patch('sys.argv', ['battery.py', 'status', '--unplugged']), contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                b.main()
 
 
 if __name__ == '__main__': unittest.main()

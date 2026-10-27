@@ -4,10 +4,11 @@ import QtQuick.Controls
 import QtQuick.Window
 import qs.Ui
 import qs.Commons
+import qs.Commons as Commons
 
 // Themed single-select dropdown. Trigger row paints with the kit's focus
-// chrome; the popup anchors below and uses Color.popups.background +
-// Color.popups.border so it reads as a panel surface rather than the
+// chrome; the popup anchors below and uses Commons.Color.popups.background +
+// Commons.Color.popups.border so it reads as a panel surface rather than the
 // platform-native ComboBox look.
 //
 // `options` accepts either a plain string[] or an array of
@@ -25,11 +26,11 @@ Item {
   property string value: ""
   property var options: []
 
-  property color foreground: Color.popups.text
-  property color background: Color.popups.background
-  property color popupBorder: Color.popups.border
-  property color accent: Color.accent
-  readonly property var popupBorderSpec: Border.localOrSurfaceSpec("popups", "border", popupBorder, Color.popups.border, Style.normalBorderWidth)
+  property color foreground: Commons.Color.popups.text
+  property color background: Commons.Color.popups.background
+  property color popupBorder: Commons.Color.popups.border
+  property color accent: Commons.Color.accent
+  readonly property var popupBorderSpec: Border.localOrSurfaceSpec("popups", "border", popupBorder, Commons.Color.popups.border, Style.normalBorderWidth)
   property string fontFamily: Style.font.family
   property int rowHeight: Style.spacing.controlHeight
   property int popupRowHeight: Style.spacing.popupRowHeight
@@ -75,8 +76,8 @@ Item {
     anchors.fill: parent
     spacing: Style.spacing.labelGap
 
-    Text {
-      textFormat: Text.PlainText
+    Text { textFormat: Text.PlainText;
+
       visible: root.showLabel && root.label !== ""
       text: root.label
       color: Qt.darker(root.foreground, 1.4)
@@ -116,8 +117,8 @@ Item {
         }
       }
 
-      Text {
-        textFormat: Text.PlainText
+      Text { textFormat: Text.PlainText;
+
         anchors.left: parent.left
         anchors.right: chevron.left
         anchors.verticalCenter: parent.verticalCenter
@@ -130,7 +131,7 @@ Item {
         elide: Text.ElideRight
       }
 
-      Text {
+      Text { textFormat: Text.PlainText;
         id: chevron
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
@@ -231,8 +232,8 @@ Item {
               ? Style.hoverFillFor(root.foreground, root.accent)
               : "transparent"
 
-            Text {
-              textFormat: Text.PlainText
+            Text { textFormat: Text.PlainText;
+
               anchors.left: parent.left
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter

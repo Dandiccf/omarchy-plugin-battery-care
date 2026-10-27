@@ -1,11 +1,15 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 Column {
   id: root
+  LayoutMirroring.enabled: strings.rightToLeft
+  LayoutMirroring.childrenInherit: true
+  CareTranslations { id: strings; directory: Qt.resolvedUrl("i18n") }
   property int seconds: 150
-  property color foreground: Color.foreground
+  property color foreground: Commons.Color.foreground
   property string fontFamily: Style.font.family
   property bool custom: false
   readonly property bool valid: !custom || (minutes.acceptableInput && remainder.acceptableInput && customSeconds >= 1 && customSeconds <= 86400)
@@ -17,9 +21,9 @@ Column {
   spacing: Style.space(4)
 
   function label(value) {
-    if (value === 0) return "Immediately"
-    if (value < 60) return value + "s"
-    return Math.floor(value / 60) + "m" + (value % 60 ? " " + value % 60 + "s" : "")
+    if (value === 0) return strings.t("Immediately")
+    if (value < 60) return strings.formatNumber(value) + "s"
+    return strings.formatNumber(Math.floor(value / 60)) + "m" + (value % 60 ? " " + strings.formatNumber(value % 60) + "s" : "")
   }
   function reset(value) {
     custom = false
@@ -40,7 +44,7 @@ Column {
       var values = [30, 60, 120, 150, 300, 600, 900, 1800, 3600]
       if (values.indexOf(root.seconds) < 0) values.push(root.seconds)
       values.sort(function(a, b) { return a - b })
-      return values.map(function(v) { return {value: String(v), label: root.label(v)} }).concat([{value: "custom", label: "Custom…"}])
+      return values.map(function(v) { return {value: String(v), label: root.label(v)} }).concat([{value: "custom", label: strings.t("Custom…")}])
     }
     onChanged: function(value) {
       root.editingStarted()
@@ -63,11 +67,11 @@ Column {
       foreground: root.foreground
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
-      placeholderText: "min"
+      placeholderText: strings.t("min")
       validator: IntValidator { bottom: 0; top: 1440 }
       onTextEdited: { root.editingStarted(); root.updateCustom() }
       onActiveFocusChanged: if (activeFocus) root.focusMoved(minutes)
-      Accessible.name: "Minutes"
+      Accessible.name: strings.t("Minutes")
     }
     TextField {
       id: remainder
@@ -75,17 +79,17 @@ Column {
       foreground: root.foreground
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
-      placeholderText: "sec"
+      placeholderText: strings.t("sec")
       validator: IntValidator { bottom: 0; top: 59 }
       onTextEdited: { root.editingStarted(); root.updateCustom() }
       onActiveFocusChanged: if (activeFocus) root.focusMoved(remainder)
-      Accessible.name: "Seconds"
+      Accessible.name: strings.t("Seconds")
     }
   }
-  Text {
+  Text { textFormat: Text.PlainText;
     visible: root.custom
-    text: root.valid ? "minutes / seconds" : "Enter 1s–24h"
-    color: root.valid ? root.foreground : Color.accent
+    text: root.valid ? strings.t("minutes / seconds") : strings.t("Enter 1s–24h")
+    color: root.valid ? root.foreground : Commons.Color.accent
     opacity: 0.7
     font.family: root.fontFamily
     font.pixelSize: Style.font.caption

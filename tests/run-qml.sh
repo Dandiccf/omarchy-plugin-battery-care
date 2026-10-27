@@ -5,17 +5,24 @@ root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 fixture_dir=$(mktemp -d /tmp/battery-care-qml.XXXXXX)
 trap 'rm -rf -- "$fixture_dir"' EXIT
 ln -s "$root" "$fixture_dir/Care"
-ln -s /usr/share/omarchy/shell/Commons "$fixture_dir/Commons"
-ln -s /usr/share/omarchy/shell/Ui "$fixture_dir/Ui"
+shell_source=${BATTERY_CARE_TEST_SHELL:-/usr/share/omarchy/shell}
+ln -s "$shell_source/Commons" "$fixture_dir/Commons"
+ln -s "$shell_source/Ui" "$fixture_dir/Ui"
 cp "$root/tests/qml-buttons.qml" "$fixture_dir/buttons.qml"
 cp "$root/tests/qml-panel.qml" "$fixture_dir/panel.qml"
 cp "$root/tests/qml-screen.qml" "$fixture_dir/screen.qml"
 cp "$root/tests/qml-idle-controller.qml" "$fixture_dir/idle-controller.qml"
 cp "$root/tests/qml-timeout-menu.qml" "$fixture_dir/timeout-menu.qml"
+cp "$root/tests/qml-i18n.qml" "$fixture_dir/i18n.qml"
+cp "$root/tests/qml-locale.qml" "$fixture_dir/locale.qml"
 mkdir -p "$fixture_dir/config/omarchy"
 printf '%s\n' '{"version":1,"idle":{"screensaver":150,"lock":300}}' > "$fixture_dir/config/omarchy/shell.json"
-for test in buttons panel screen idle-controller timeout-menu; do
-  XDG_CONFIG_HOME="$fixture_dir/config" XDG_STATE_HOME="$fixture_dir/statehome" BATTERY_CARE_IDLE_TEST_STATE="$fixture_dir/idle-runtime.json" BATTERY_CARE_TEST_STATE="$fixture_dir/state" QT_QPA_PLATFORM=wayland timeout 15 qs -p "$fixture_dir/$test.qml" --no-color >"$fixture_dir/$test.log" 2>&1 || {
+translation_test=i18n
+if [[ ! -f "$shell_source/Commons/Translations.qml" ]]; then
+  translation_test=locale
+fi
+for test in buttons panel screen idle-controller timeout-menu "$translation_test"; do
+  LC_ALL=de_AT.UTF-8 LC_MESSAGES=fr_FR.UTF-8 LANG=es_ES.UTF-8 XDG_CONFIG_HOME="$fixture_dir/config" XDG_STATE_HOME="$fixture_dir/statehome" BATTERY_CARE_IDLE_TEST_STATE="$fixture_dir/idle-runtime.json" BATTERY_CARE_TEST_STATE="$fixture_dir/state" QT_QPA_PLATFORM=wayland timeout 15 qs -p "$fixture_dir/$test.qml" --no-color >"$fixture_dir/$test.log" 2>&1 || {
     cat "$fixture_dir/$test.log"; exit 1;
   }
   if rg -q 'FAIL:|TypeError|ReferenceError|Failed to load configuration' "$fixture_dir/$test.log" || ! rg -q 'PASS:' "$fixture_dir/$test.log"; then
