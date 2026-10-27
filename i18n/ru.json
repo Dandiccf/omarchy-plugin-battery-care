@@ -149,5 +149,10 @@
   "APPS ON BATTERY · 24 HOURS": "ПРИЛОЖЕНИЯ ОТ БАТАРЕИ · 24 ЧАСА",
   "APPS ON BATTERY · 10 DAYS": "ПРИЛОЖЕНИЯ ОТ БАТАРЕИ · 10 ДНЕЙ",
   "POWER USE ON BATTERY": "ПОТРЕБЛЕНИЕ ОТ БАТАРЕИ",
-  "BATTERY ENERGY USED PER DAY": "ЭНЕРГИЯ БАТАРЕИ ЗА ДЕНЬ"
+  "BATTERY ENERGY USED PER DAY": "ЭНЕРГИЯ БАТАРЕИ ЗА ДЕНЬ",
+  "Only with external display": "Только с внешним дисплеем",
+  "Protect the battery at all times": "Всегда защищать батарею",
+  "Limit charging only while an external display is connected": "Ограничивать зарядку только при подключенном внешнем дисплее",
+  "Limit applies only while an external display is connected. No external display now, so charging to 100% is allowed.": "Лимит действует только при подключенном внешнем дисплее. Сейчас внешний дисплей не подключен, поэтому зарядка до 100% разрешена.",
+  " Applies only while an external display is connected.": " Действует только при подключенном внешнем дисплее."
 }

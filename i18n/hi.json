@@ -149,5 +149,10 @@
   "APPS ON BATTERY · 24 HOURS": "बैटरी पर ऐप · 24 घंटे",
   "APPS ON BATTERY · 10 DAYS": "बैटरी पर ऐप · 10 दिन",
   "POWER USE ON BATTERY": "बैटरी पर बिजली उपयोग",
-  "BATTERY ENERGY USED PER DAY": "प्रतिदिन बैटरी ऊर्जा उपयोग"
+  "BATTERY ENERGY USED PER DAY": "प्रतिदिन बैटरी ऊर्जा उपयोग",
+  "Only with external display": "केवल बाहरी स्क्रीन के साथ",
+  "Protect the battery at all times": "बैटरी की सुरक्षा हमेशा करें",
+  "Limit charging only while an external display is connected": "चार्जिंग को केवल तब सीमित करें जब बाहरी स्क्रीन जुड़ी हो",
+  "Limit applies only while an external display is connected. No external display now, so charging to 100% is allowed.": "सीमा केवल तब लागू होती है जब बाहरी स्क्रीन जुड़ी हो। अभी कोई बाहरी स्क्रीन नहीं जुड़ी है, इसलिए 100% तक चार्ज करने की अनुमति है।",
+  " Applies only while an external display is connected.": " केवल तब लागू होती है जब बाहरी स्क्रीन जुड़ी हो।"
 }

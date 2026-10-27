@@ -149,5 +149,10 @@
   "APPS ON BATTERY · 24 HOURS": "APPS SUR BATTERIE · 24 HEURES",
   "APPS ON BATTERY · 10 DAYS": "APPS SUR BATTERIE · 10 JOURS",
   "POWER USE ON BATTERY": "CONSOMMATION SUR BATTERIE",
-  "BATTERY ENERGY USED PER DAY": "ÉNERGIE DE LA BATTERIE PAR JOUR"
+  "BATTERY ENERGY USED PER DAY": "ÉNERGIE DE LA BATTERIE PAR JOUR",
+  "Only with external display": "Uniquement avec écran externe",
+  "Protect the battery at all times": "Protéger la batterie en permanence",
+  "Limit charging only while an external display is connected": "Limiter la charge uniquement lorsqu’un écran externe est connecté",
+  "Limit applies only while an external display is connected. No external display now, so charging to 100% is allowed.": "La limite s’applique uniquement lorsqu’un écran externe est connecté. Aucun écran externe n’est connecté actuellement, la charge à 100 % est donc autorisée.",
+  " Applies only while an external display is connected.": " S’applique uniquement lorsqu’un écran externe est connecté."
 }

@@ -149,5 +149,10 @@
   "APPS ON BATTERY · 24 HOURS": "배터리 사용 중 앱 · 24시간",
   "APPS ON BATTERY · 10 DAYS": "배터리 사용 중 앱 · 10일",
   "POWER USE ON BATTERY": "배터리 사용 시 소비 전력",
-  "BATTERY ENERGY USED PER DAY": "일별 배터리 에너지 사용량"
+  "BATTERY ENERGY USED PER DAY": "일별 배터리 에너지 사용량",
+  "Only with external display": "외부 디스플레이 연결 시에만",
+  "Protect the battery at all times": "항상 배터리 보호",
+  "Limit charging only while an external display is connected": "외부 디스플레이 연결 시에만 충전 제한",
+  "Limit applies only while an external display is connected. No external display now, so charging to 100% is allowed.": "제한은 외부 디스플레이가 연결된 동안에만 적용됩니다. 현재 외부 디스플레이가 연결되어 있지 않아 100% 충전이 허용됩니다.",
+  " Applies only while an external display is connected.": " 외부 디스플레이가 연결된 동안에만 적용됩니다."
 }

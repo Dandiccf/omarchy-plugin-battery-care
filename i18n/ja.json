@@ -149,5 +149,10 @@
   "APPS ON BATTERY · 24 HOURS": "バッテリー駆動時のアプリ · 24時間",
   "APPS ON BATTERY · 10 DAYS": "バッテリー駆動時のアプリ · 10日間",
   "POWER USE ON BATTERY": "バッテリー駆動時の消費電力",
-  "BATTERY ENERGY USED PER DAY": "1日あたりのバッテリー使用量"
+  "BATTERY ENERGY USED PER DAY": "1日あたりのバッテリー使用量",
+  "Only with external display": "外付けディスプレイ時のみ",
+  "Protect the battery at all times": "常にバッテリーを保護",
+  "Limit charging only while an external display is connected": "外付けディスプレイ接続中のみ充電を制限",
+  "Limit applies only while an external display is connected. No external display now, so charging to 100% is allowed.": "上限は外付けディスプレイ接続中のみ適用されます。現在は外付けディスプレイが接続されていないため、100% まで充電できます。",
+  " Applies only while an external display is connected.": " 外付けディスプレイ接続中のみ適用されます。"
 }

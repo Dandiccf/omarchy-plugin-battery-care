@@ -8,6 +8,12 @@ function duration(seconds, i18n) {
 function percent(value, i18n) { return typeof value === "number" && isFinite(value) ? (i18n ? i18n.formatNumber(Math.round(value)) : Math.round(value)) + "%" : "—" }
 function limitLabel(b, strings) { return b.end != null ? (strings ? strings.t("%1% limit").replace("%1", b.end) : b.end + "% limit") : (strings ? strings.t("Protect battery") : "Protect battery") }
 function protectionAction(b) { return b.enabled === true ? "off" : "protect" }
+function autoAction(b) { return b.auto === true ? "protect" : "auto" }
+function autoLabel(b, strings) {
+  var template = strings ? strings.t(b.auto ? "%1 · On" : "%1 · Off") : (b.auto ? "%1 · On" : "%1 · Off")
+  var label = strings ? strings.t("Only with external display") : "Only with external display"
+  return template.replace("%1", label)
+}
 function fullChargeActive(b) { return b.mode === "full" && b.enabled === false }
 function fullChargeAction(b) { return fullChargeActive(b) ? "protect" : "full" }
 function nextControl(index, delta, enabled, active) {
@@ -41,10 +47,12 @@ function explanation(b, onBattery, strings) {
   if (b.mismatch) return t("The hardware limit differs from UPower. Another battery manager may be changing it.")
   if (b.mode === "full" && !b.enabled) return t("Full charge for this session. Protection returns after unplugging (checked every 15 seconds), or at the next login after a reboot.")
   if (b.mode === "off" && !b.enabled) return t("Protection is off. Charging to 100% is allowed until you turn the limit on again.")
+  if (b.auto && !b.enabled) return t("Limit applies only while an external display is connected. No external display now, so charging to 100% is allowed.")
   if (b.enabled) {
     var text = b.end != null ? t("Stops charging at %1%.").replace("%1", b.end) : t("Uses the battery’s firmware charge limit.")
     if (b.start != null && b.start > 0) text += " " + t("Resumes below %1%.").replace("%1", b.start)
     if (b.end != null && b.percentage > b.end) text += t(" It will not actively drain the battery.")
+    if (b.auto) text += t(" Applies only while an external display is connected.")
     return text
   }
   return b.end != null ? t("Protection is off. The available %1% preset is not active.").replace("%1", b.end) : t("Protection is off. Enable protection to use the firmware limit.")
@@ -134,4 +142,4 @@ function parseProfiles(raw) {
   })
   return { profiles: profiles, activeProfile: active }
 }
-if (typeof module !== "undefined") module.exports = { netFlow, laptopValue, chargerValue, timeToStop, stopLabel, trackEnergy, draining, flowLabel, flowValue, duration, percent, limitLabel, protectionAction, fullChargeActive, fullChargeAction, nextControl, holding, status, explanation, batteryIcon, profileIcon, parseProfiles }
+if (typeof module !== "undefined") module.exports = { netFlow, laptopValue, chargerValue, timeToStop, stopLabel, trackEnergy, draining, flowLabel, flowValue, duration, percent, limitLabel, protectionAction, autoAction, autoLabel, fullChargeActive, fullChargeAction, nextControl, holding, status, explanation, batteryIcon, profileIcon, parseProfiles }

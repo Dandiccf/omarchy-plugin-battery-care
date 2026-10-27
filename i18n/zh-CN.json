@@ -149,5 +149,10 @@
   "APPS ON BATTERY · 24 HOURS": "电池供电时的应用 · 24 小时",
   "APPS ON BATTERY · 10 DAYS": "电池供电时的应用 · 10 天",
   "POWER USE ON BATTERY": "电池供电时功耗",
-  "BATTERY ENERGY USED PER DAY": "每日电池能耗"
+  "BATTERY ENERGY USED PER DAY": "每日电池能耗",
+  "Only with external display": "仅外接显示器",
+  "Protect the battery at all times": "始终保护电池",
+  "Limit charging only while an external display is connected": "仅在外接显示器连接时限制充电",
+  "Limit applies only while an external display is connected. No external display now, so charging to 100% is allowed.": "该限制仅在外接显示器连接时生效。当前没有外接显示器，因此允许充至 100%。",
+  " Applies only while an external display is connected.": " 仅在外接显示器连接时生效。"
 }
